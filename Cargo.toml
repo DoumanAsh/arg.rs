@@ -11,6 +11,16 @@ include = [
     "Cargo.toml",
     "README.md"
 ]
+description = "Very simple code generator for command line argument parsing."
+keywords = [
+	"argument",
+	"cli",
+	"arg",
+	"parser",
+	"parse"
+]
+categories = ["command-line-interface"]
+
 
 [dependencies.arg-derive]
 version = "0.1"

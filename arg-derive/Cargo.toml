@@ -1,0 +1,32 @@
+[package]
+name = "arg-derive"
+version = "0.1.0"
+authors = ["Douman <douman@gmx.se>"]
+edition = "2018"
+repository = "https://github.com/DoumanAsh/arg.rs"
+readme = "README.md"
+license = "Apache-2.0"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md"
+]
+keywords = [
+	"argument",
+	"cli",
+	"arg",
+	"parser",
+	"parse"
+]
+categories = ["command-line-interface"]
+
+[lib]
+proc-macro = true
+
+[dependencies.syn]
+version = "1"
+features = ["extra-traits"]
+
+[dependencies]
+quote = "1"
+tabwriter = "1"

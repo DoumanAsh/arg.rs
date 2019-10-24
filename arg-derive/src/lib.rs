@@ -11,6 +11,7 @@ struct Argument {
     name: String,
     desc: String,
     required: bool,
+    is_optional: bool,
     default: Option<String>,
 }
 
@@ -38,14 +39,14 @@ const INVALID_REQUIRED_BOOL: &str = "Attribute required cannot be applied to boo
 const ARG_INVALID_CHARS: &[char] = &[' ', '\t'];
 const ARG_NAME_SPACE_ERROR: &str = "Name contains space character";
 
-fn is_path_vec(path: &syn::Path) -> bool {
-    for seg in path.segments.iter() {
-        if seg.ident.to_string() == "Vec" {
-            return true;
-        }
+fn parse_segment(segment: &syn::PathSegment) -> OptValueType {
+    if segment.ident == "bool" {
+        OptValueType::Bool
+    } else if segment.ident == "Vec" {
+        OptValueType::MultiValue
+    } else {
+        OptValueType::Value
     }
-
-    false
 }
 
 fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream {
@@ -74,6 +75,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             name: "help".to_owned(),
             desc: "Prints this help information".to_owned(),
             required: false,
+            is_optional: false,
             default: None,
         },
         short: Some("h".to_owned()),
@@ -90,16 +92,37 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
         let mut short = None;
         let mut long = None;
         let mut required = false;
-        let typ = match field.ty {
-            syn::Type::Path(ref ty) => if ty.path.is_ident("bool") {
-                OptValueType::Bool
-            } else if is_path_vec(&ty.path) {
-                OptValueType::MultiValue
-            } else {
-                OptValueType::Value
+
+        let (is_optional, typ) = match field.ty {
+            syn::Type::Path(ref ty) => {
+                let ty = ty.path.segments.last().expect("To have at least one segment");
+
+                if ty.ident == "Option" {
+                    let ty = match &ty.arguments {
+                        syn::PathArguments::AngleBracketed(ref args) => match args.args.len() {
+                            0 => return syn::Error::new_spanned(&ty.ident, "Oi, mate, Option is without type arguments. Fix it").to_compile_error().into(),
+                            1 => match args.args.first().unwrap() {
+                                syn::GenericArgument::Type(syn::Type::Path(ty)) => parse_segment(ty.path.segments.last().expect("To have at least one segment")),
+                                _ => return syn::Error::new_spanned(&ty.ident, "Oi, mate, Option should have type argument, but got some other shite. Fix it").to_compile_error().into(),
+                            },
+                            _ => return syn::Error::new_spanned(&ty.ident, "Oi, mate, Option has too many type arguments. Fix it").to_compile_error().into()
+                        },
+                        syn::PathArguments::None => return syn::Error::new_spanned(&ty.ident, "Oi, mate, Option is without type arguments. Fix it").to_compile_error().into(),
+                        syn::PathArguments::Parenthesized(_) => return syn::Error::new_spanned(&ty.ident, "Oi, mate, you got wrong brackets for your Option . Fix it").to_compile_error().into(),
+                    };
+
+                    (true, ty)
+                } else {
+                    (false, parse_segment(ty))
+                }
             },
-            _ => OptValueType::Value,
+            _ => (false, OptValueType::Value),
         };
+
+        if is_optional && typ == OptValueType::MultiValue {
+            return syn::Error::new_spanned(field, "Option<Vec<_>> makes no sense. Just use plain Vec<_>").to_compile_error().into();
+        }
+
         let mut default = None;
 
         for attr in field.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
@@ -171,14 +194,13 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             }
         }
 
-
         desc.pop();
 
-        if required {
-            if default.is_some() {
-                return syn::Error::new_spanned(field.ident.clone(), "Marked as required, but default value is provided?").to_compile_error().into();
-            }
-        } else if default.is_none() {
+        if required && default.is_some() {
+            return syn::Error::new_spanned(field.ident.clone(), "Marked as required, but default value is provided?").to_compile_error().into();
+        } else if is_optional && default.is_some() {
+            return syn::Error::new_spanned(field.ident.clone(), "Optional, but default value is provided?").to_compile_error().into();
+        } else if !required && !is_optional && default.is_none() {
             default = Some(DEFAULT_INIT.to_owned());
         }
 
@@ -193,6 +215,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     name,
                     desc,
                     required,
+                    is_optional,
                     default,
                 });
 
@@ -202,6 +225,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     name,
                     desc,
                     required,
+                    is_optional,
                     default,
                 })
             }
@@ -218,6 +242,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     name,
                     desc,
                     required,
+                    is_optional,
                     default,
                 },
                 short,
@@ -395,7 +420,10 @@ USAGE: [OPTIONS]", about_prog);
             OptValueType::Bool => Ok(()),
             _ => match option.arg.default {
                 Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ {2} }};", TAB, option.arg.field_name, default),
-                None => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseError::RequiredArgMissing(\"{2}\")) }};", TAB, option.arg.field_name, option.arg.name),
+                None => match option.arg.is_optional {
+                    true => Ok(()),
+                    false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseError::RequiredArgMissing(\"{2}\")) }};", TAB, option.arg.field_name, option.arg.name),
+                },
             },
         };
     }
@@ -403,7 +431,10 @@ USAGE: [OPTIONS]", about_prog);
     for arg in arguments.iter() {
         let _ = match arg.default {
             Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ {2} }};", TAB, arg.field_name, default),
-            None => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseError::RequiredArgMissing(\"{2}\")) }};", TAB, arg.field_name, arg.name),
+            None => match arg.is_optional {
+                true => Ok(()),
+                false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseError::RequiredArgMissing(\"{2}\")) }};", TAB, arg.field_name, arg.name),
+            }
         };
     }
 
@@ -414,7 +445,12 @@ USAGE: [OPTIONS]", about_prog);
         if option.arg.field_name == "_" {
             continue;
         }
-        let _ = writeln!(result, "{0}{0}{0}{1},", TAB, option.arg.field_name);
+
+        let _ = if option.arg.is_optional && option.typ == OptValueType::Bool {
+            writeln!(result, "{0}{0}{0}{1}: Some({1}),", TAB, option.arg.field_name)
+        } else {
+            writeln!(result, "{0}{0}{0}{1},", TAB, option.arg.field_name)
+        };
     }
 
     for arg in arguments.iter() {

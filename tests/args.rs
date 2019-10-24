@@ -7,8 +7,13 @@ use arg::Args;
 ///About my program
 struct MyArgs {
     #[arg(short, long, required)]
-    ///Required flag
+    ///Required argument
     required: u32,
+
+    #[arg(short, long)]
+    ///Optional argument
+    optional: Option<u32>,
+
     #[arg(short, long)]
     ///About this flag
     flag: bool,
@@ -67,12 +72,25 @@ fn should_handle_all_flags() {
     let result = MyArgs::from_text("-f -r 5 --verbose -v 32 -g 1 --gps 55 path1 path2 rest1 rest2").unwrap();
     assert!(result.flag);
     assert!(result.verbose);
+    assert_eq!(result.optional, None);
     assert_eq!(result.required, 5);
     assert_eq!(result.speed, 32);
     assert_eq!(result.gps, &[1, 55]);
     assert_eq!(result.path, "path1");
     assert_eq!(result.path2, "path2");
     assert_eq!(result.remain_paths, &["rest1", "rest2"]);
+
+    let result = MyArgs::from_text("-f -r 5 --verbose -o 13 -v 32 -g 1 --gps 55 path1 path2 rest1 rest2").unwrap();
+    assert!(result.flag);
+    assert!(result.verbose);
+    assert_eq!(result.optional, Some(13));
+    assert_eq!(result.required, 5);
+    assert_eq!(result.speed, 32);
+    assert_eq!(result.gps, &[1, 55]);
+    assert_eq!(result.path, "path1");
+    assert_eq!(result.path2, "path2");
+    assert_eq!(result.remain_paths, &["rest1", "rest2"]);
+
 }
 
 #[test]

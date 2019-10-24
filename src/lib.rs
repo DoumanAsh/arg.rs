@@ -23,6 +23,13 @@
 //!
 //! By default all types, aside from `bool` flags use `FromStr::from_str` to parse value from string.
 //!
+//! ### Optional
+//!
+//! If type is `Option<T>` then argument is assumed to be optional, in which case it cannot be
+//! marked with `required` or `default_value`
+//!
+//! As result, not providing argument shall not fail parser.
+//!
 //! # Usage
 //!
 //! ```rust
@@ -40,7 +47,7 @@
 //!
 //!     #[arg(long = "verbose")]
 //!     ///Verbose mode
-//!     verbose: bool,
+//!     verbose: Option<bool>,
 //!
 //!     #[arg(short = "v", long = "velocity", default_value = "42")]
 //!     ///This is felocity. Default value is 42.

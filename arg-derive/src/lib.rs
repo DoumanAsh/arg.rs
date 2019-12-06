@@ -289,12 +289,10 @@ USAGE: [OPTIONS]", about_prog);
                 _ => Ok(()),
             };
 
-            let _ = write!(tw, "\t{}", option.arg.desc);
-
-            let _ = writeln!(tw, "");
+            let _ = write!(tw, "\t{}\n", option.arg.desc);
         }
 
-        let _ = write!(tw, "\n\nARGS:\n");
+        let _ = write!(tw, "\nARGS:\n");
 
         for argument in arguments.iter() {
             let _ = if argument.required {

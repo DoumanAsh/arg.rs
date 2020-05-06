@@ -345,7 +345,7 @@ USAGE: [OPTIONS]", about_prog);
     //options
     let _ = writeln!(result, "{0}{0}{0}if _arg_.starts_with('-') {{", TAB);
     let _ = writeln!(result, "{0}{0}{0}{0}match &_arg_[1..] {{", TAB);
-    let _ = writeln!(result, "{0}{0}{0}{0}{0}\"h\" | \"-help\" => return Err(arg::ParseError::HelpRequested),", TAB);
+    let _ = writeln!(result, "{0}{0}{0}{0}{0}\"h\" | \"-help\" => return Err(arg::ParseError::HelpRequested(Self::HELP)),", TAB);
 
     for option in options.iter() {
         if option.arg.field_name == "_" {

@@ -91,7 +91,9 @@ use core::fmt;
 ///Parse errors
 pub enum ParseError<'a> {
     ///User requested help.
-    HelpRequested,
+    ///
+    ///Contains slice with `Args::HELP`
+    HelpRequested(&'static str),
     ///Too many arguments are specified.
     TooManyArgs,
     ///Argument is required, but missing
@@ -118,7 +120,7 @@ impl<'a> ParseError<'a> {
     ///Returns whether help is requested
     pub fn is_help(&self) -> bool {
         match self {
-            ParseError::HelpRequested => true,
+            ParseError::HelpRequested(_) => true,
             _ => false,
         }
     }
@@ -127,8 +129,8 @@ impl<'a> ParseError<'a> {
 impl<'a> fmt::Display for ParseError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParseError::HelpRequested => Ok(()),
-            ParseError::TooManyArgs => write!(f, "Too many arguments are provided"),
+            ParseError::HelpRequested(help) => f.write_str(help),
+            ParseError::TooManyArgs => f.write_str("Too many arguments are provided"),
             ParseError::RequiredArgMissing(arg) => write!(f, "Argument '{}' is required, but not provided", arg),
             ParseError::MissingValue(arg) => write!(f, "Flag '{}' is provided without value", arg),
             ParseError::InvalidFlagValue(arg, value) => write!(f, "Flag '{}' is provided with '{}' which is invalid", arg, value),

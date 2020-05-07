@@ -272,6 +272,14 @@ USAGE: [OPTIONS]", about_prog);
             };
         }
 
+        if let Some(argument) = multi_argument.as_ref() {
+            let _ = if argument.required {
+                write!(tw, " <{}>...", argument.name)
+            } else {
+                write!(tw, " [{}]...", argument.name)
+            };
+        }
+
         let _ = write!(tw, "\n\nOPTIONS:\n");
 
         for option in options.iter() {

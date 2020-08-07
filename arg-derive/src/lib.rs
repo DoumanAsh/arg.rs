@@ -36,6 +36,7 @@ const PARSER_TRAIT: &str = "arg::Args";
 const DEFAULT_INIT: &str = "Default::default()";
 const INVALID_ARG_TYPE_STRING: &str = "Attribute accepts only str";
 const INVALID_REQUIRED_BOOL: &str = "Attribute required cannot be applied to bool switch";
+const UNKNOWN_ARG_ATTR: &str = "Unknown attribute is used";
 const ARG_INVALID_CHARS: &[char] = &[' ', '\t'];
 const ARG_NAME_SPACE_ERROR: &str = "Name contains space character";
 
@@ -181,7 +182,9 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                                         } else {
                                             return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
                                         }
-                                    },
+                                    } else {
+                                        return syn::Error::new_spanned(value_attr.path.clone(), UNKNOWN_ARG_ATTR).to_compile_error().into();
+                                    }
                                     _ => {
                                     },
                                 }

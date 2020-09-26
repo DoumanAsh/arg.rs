@@ -265,7 +265,11 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
 
         let _ = write!(tw, "{}
 
-USAGE: [OPTIONS]", about_prog);
+USAGE:", about_prog);
+
+        if !options.is_empty() {
+            let _ = write!(tw, " [OPTIONS]");
+        }
 
         for argument in arguments.iter() {
             let _ = if argument.required {
@@ -283,7 +287,9 @@ USAGE: [OPTIONS]", about_prog);
             };
         }
 
-        let _ = write!(tw, "\n\nOPTIONS:\n");
+        if !options.is_empty() {
+            let _ = write!(tw, "\n\nOPTIONS:\n");
+        }
 
         for option in options.iter() {
             let _ = write!(tw, "\t");
@@ -303,7 +309,9 @@ USAGE: [OPTIONS]", about_prog);
             let _ = write!(tw, "\t{}\n", option.arg.desc);
         }
 
-        let _ = write!(tw, "\nARGS:\n");
+        if !arguments.is_empty() || multi_argument.is_some() {
+            let _ = write!(tw, "\nARGS:\n");
+        }
 
         for argument in arguments.iter() {
             let _ = if argument.required {

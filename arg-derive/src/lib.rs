@@ -362,8 +362,8 @@ USAGE:", about_prog);
     let _ = writeln!(result, "{0}{0}while let Some(_arg_) = _args_.next() {{", TAB);
 
     //options
-    let _ = writeln!(result, "{0}{0}{0}if _arg_.starts_with('-') {{", TAB);
-    let _ = writeln!(result, "{0}{0}{0}{0}match &_arg_[1..] {{", TAB);
+    let _ = writeln!(result, "{0}{0}{0}if let Some(_arg_) = _arg_.strip_prefix('-') {{", TAB);
+    let _ = writeln!(result, "{0}{0}{0}{0}match _arg_ {{", TAB);
     let _ = writeln!(result, "{0}{0}{0}{0}{0}\"h\" | \"-help\" => return Err(arg::ParseError::HelpRequested(Self::HELP)),", TAB);
 
     for option in options.iter() {

@@ -1,6 +1,6 @@
 [package]
 name = "arg-derive"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Douman <douman@gmx.se>"]
 edition = "2018"
 repository = "https://github.com/DoumanAsh/arg.rs"

@@ -1,5 +1,9 @@
 //! Arg is simple command line argument parser, without any dependencies
 //!
+//!# Features
+//!
+//!- `std` - Enables utilities that require `std` library.
+//!
 //! # Syntax
 //!
 //! ## Fields
@@ -80,6 +84,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
 
+#[cfg(feature = "std")]
+extern crate std;
+
 pub use arg_derive::*;
 
 mod split;
@@ -151,5 +158,28 @@ pub trait Args: Sized {
     ///Parses arguments from string, which gets tokenized and passed to from.
     fn from_text<'a>(text: &'a str) -> Result<Self, ParseError<'a>> {
         Self::from_args(Split::from_str(text))
+    }
+}
+
+
+#[cfg(feature = "std")]
+///Parses CLI arguments from `std::env::args()`
+///
+///Requires feature `std`
+///
+///In case of help it prints help to stdout and exits with return code 0.
+///In case of error it prints error to stderr and exits with return code 1.
+pub fn parse_args<T: Args>() -> T {
+    let args: std::vec::Vec<_> = std::env::args().skip(1).collect();
+    match T::from_args(args.iter().map(std::string::String::as_str)) {
+        Ok(args) => args,
+        Err(ParseError::HelpRequested(help)) => {
+            std::println!("{}", help);
+            std::process::exit(0);
+        },
+        Err(error) => {
+            std::eprintln!("{}", error);
+            std::process::exit(1);
+        }
     }
 }

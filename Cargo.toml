@@ -27,3 +27,6 @@ path = "arg-derive/"
 
 [features]
 std = []
+
+[package.metadata.docs.rs]
+features = ["std"]

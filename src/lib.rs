@@ -170,16 +170,19 @@ pub trait Args: Sized {
 ///In case of help it prints help to stdout and exits with return code 0.
 ///In case of error it prints error to stderr and exits with return code 1.
 pub fn parse_args<T: Args>() -> T {
-    let args: std::vec::Vec<_> = std::env::args().skip(1).collect();
-    match T::from_args(args.iter().map(std::string::String::as_str)) {
-        Ok(args) => args,
-        Err(ParseError::HelpRequested(help)) => {
-            std::println!("{}", help);
-            std::process::exit(0);
-        },
-        Err(error) => {
-            std::eprintln!("{}", error);
-            std::process::exit(1);
+    let code = {
+        let args: std::vec::Vec<_> = std::env::args().skip(1).collect();
+        match T::from_args(args.iter().map(std::string::String::as_str)) {
+            Ok(args) => return args,
+            Err(ParseError::HelpRequested(help)) => {
+                std::println!("{}", help);
+                0
+            },
+            Err(error) => {
+                std::eprintln!("{}", error);
+                1
+            }
         }
-    }
+    };
+    std::process::exit(code);
 }

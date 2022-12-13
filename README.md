@@ -11,3 +11,7 @@ No dependencies.
 ## Features
 
 - `std` - Enables utilities that require `std` library.
+
+## Debug
+
+Set env variable `ARG_RS_PRINT_PARSER` to any value except `0` or `false` to print parser result

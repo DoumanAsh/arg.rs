@@ -98,3 +98,9 @@ fn should_supply_default_value() {
     let result = MyArgs::from_text("-f -r 5 --verbose -g 1 --gps 55 path1 path2 rest1 rest2").unwrap();
     assert_eq!(result.speed, 42);
 }
+
+#[test]
+fn shoukd_handle_dash() {
+    let result = MyArgs::from_text("-f -r 5 --verbose -g 1 --gps 55 path1 path2 rest1 -").unwrap();
+    assert_eq!(result.remain_paths[1], "-");
+}

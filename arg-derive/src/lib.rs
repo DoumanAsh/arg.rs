@@ -365,6 +365,7 @@ USAGE:", about_prog);
     let _ = writeln!(result, "{0}{0}{0}if let Some(_arg_) = _arg_.strip_prefix('-') {{", TAB);
     let _ = writeln!(result, "{0}{0}{0}{0}match _arg_ {{", TAB);
     let _ = writeln!(result, "{0}{0}{0}{0}{0}\"h\" | \"-help\" => return Err(arg::ParseError::HelpRequested(Self::HELP)),", TAB);
+    let _ = writeln!(result, "{0}{0}{0}{0}{0}\"\" => (),", TAB);
 
     for option in options.iter() {
         if option.arg.field_name == "_" {
@@ -381,17 +382,17 @@ USAGE:", about_prog);
 
         let _ = match option.typ {
             OptValueType::Help => panic!("Option Help is invalid here. Bug report it"),
-            OptValueType::Bool => write!(result, "{0} = !{0},", option.arg.field_name),
+            OptValueType::Bool => write!(result, "{{ {0} = !{0}; continue }},", option.arg.field_name),
             OptValueType::Value => write!(result, "match _args_.next() {{
 {0}{0}{0}{0}{0}{0}Some(_next_arg_) => match {1}(_next_arg_) {{
-{0}{0}{0}{0}{0}{0}{0}Ok(value) => {2} = Some(value),
+{0}{0}{0}{0}{0}{0}{0}Ok(value) => {{ {2} = Some(value); continue }},
 {0}{0}{0}{0}{0}{0}{0}Err(_) => return Err(arg::ParseError::InvalidFlagValue(\"{3}\", _next_arg_)),
 {0}{0}{0}{0}{0}{0}}},
 {0}{0}{0}{0}{0}{0}None => return Err(arg::ParseError::MissingValue(\"{3}\")),
 {0}{0}{0}{0}{0}}}", TAB, FROM_FN, option.arg.field_name, option.arg.name),
             OptValueType::MultiValue => write!(result, "match _args_.next() {{
 {0}{0}{0}{0}{0}{0}Some(_next_arg_) => match {1}(_next_arg_) {{
-{0}{0}{0}{0}{0}{0}{0}Ok(value) => {2}.push(value),
+{0}{0}{0}{0}{0}{0}{0}Ok(value) => {{ {2}.push(value); continue }},
 {0}{0}{0}{0}{0}{0}{0}Err(_) => return Err(arg::ParseError::InvalidFlagValue(\"{3}\", _next_arg_)),
 {0}{0}{0}{0}{0}{0}}},
 {0}{0}{0}{0}{0}{0}None => return Err(arg::ParseError::MissingValue(\"{3}\")),
@@ -402,16 +403,23 @@ USAGE:", about_prog);
     let _ = writeln!(result, "{0}{0}{0}{0}{0}_ => return Err(arg::ParseError::UnknownFlag(_arg_)),", TAB);
 
     let _ = writeln!(result, "{0}{0}{0}{0}}}", TAB);
+    let _ = writeln!(result, "{0}{0}{0}}}", TAB);
     //rest args
-    for arg in arguments.iter() {
-        let _ = writeln!(result, "{0}{0}{0}}} else if {1}.is_none() {{", TAB, arg.field_name);
+    for (idx, arg) in arguments.iter().enumerate() {
+        if idx == 0 {
+            let _ = writeln!(result, "{0}{0}{0}if {1}.is_none() {{", TAB, arg.field_name);
+        } else {
+            let _ = writeln!(result, "{0}{0}{0}}} else if {1}.is_none() {{", TAB, arg.field_name);
+        }
         let _ = writeln!(result, "{0}{0}{0}{0}match {1}(_arg_) {{", TAB, FROM_FN);
         let _ = writeln!(result, "{0}{0}{0}{0}{0}Ok(_res_) => {1} = Some(_res_),", TAB, arg.field_name);
         let _ = writeln!(result, "{0}{0}{0}{0}{0}Err(_) => return Err(arg::ParseError::InvalidArgValue(\"{1}\", _arg_)),", TAB, arg.field_name);
         let _ = writeln!(result, "{0}{0}{0}{0}}}", TAB);
     }
     //too many args?
-    let _ = writeln!(result, "{0}{0}{0}}} else {{", TAB);
+    if !arguments.is_empty() {
+        let _ = writeln!(result, "{0}{0}{0}}} else {{", TAB);
+    }
 
     if let Some(arg) = multi_argument.as_ref() {
         let _ = writeln!(result, "{0}{0}{0}{0}match {1}(_arg_) {{", TAB, FROM_FN);
@@ -421,10 +429,13 @@ USAGE:", about_prog);
     } else {
         let _ = writeln!(result, "{0}{0}{0}{0} return Err(arg::ParseError::TooManyArgs);", TAB);
     }
-    let _ = writeln!(result, "{0}{0}{0}}}", TAB);
     //exit args
-
-    let _ = writeln!(result, "{0}{0}}}", TAB);
+    if !arguments.is_empty() {
+        let _ = writeln!(result, "{0}{0}{0}}}", TAB);
+        let _ = writeln!(result, "{0}{0}}}", TAB);
+    } else {
+        let _ = writeln!(result, "{0}{0}}}", TAB);
+    }
 
     //Set defaults
     for option in options.iter() {
@@ -485,6 +496,12 @@ USAGE:", about_prog);
 
     let _ = writeln!(result, "}}");
 
+    if let Ok(val) = std::env::var("ARG_RS_PRINT_PARSER") {
+        match val.trim() {
+            "0" | "false" => (),
+            _ => println!("{result}"),
+        }
+    }
     result.parse().expect("To parse generated code")
 }
 

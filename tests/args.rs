@@ -1,5 +1,25 @@
 use arg::Args;
 
+#[allow(unused)]
+#[derive(Args, Debug)]
+struct Test4 {
+}
+
+#[allow(unused)]
+#[derive(Args, Debug)]
+struct Test3 {
+  paths: Vec<String>,
+}
+
+#[allow(unused)]
+#[derive(Args, Debug)]
+struct Test2 {
+  #[arg(short = "u")]
+  u: bool,
+
+  paths: Vec<String>,
+}
+
 #[derive(Debug, Args)]
 ///my_exe 0.1.0
 ///About my program
@@ -97,4 +117,10 @@ fn should_handle_all_flags() {
 fn should_supply_default_value() {
     let result = MyArgs::from_text("-f -r 5 --verbose -g 1 --gps 55 path1 path2 rest1 rest2").unwrap();
     assert_eq!(result.speed, 42);
+}
+
+#[test]
+fn shoukd_handle_dash() {
+    let result = MyArgs::from_text("-f -r 5 --verbose -g 1 --gps 55 path1 path2 rest1 -").unwrap();
+    assert_eq!(result.remain_paths[1], "-");
 }

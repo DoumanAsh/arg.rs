@@ -2,6 +2,17 @@ use arg::Args;
 
 #[allow(unused)]
 #[derive(Args, Debug)]
+struct Test4 {
+}
+
+#[allow(unused)]
+#[derive(Args, Debug)]
+struct Test3 {
+  paths: Vec<String>,
+}
+
+#[allow(unused)]
+#[derive(Args, Debug)]
 struct Test2 {
   #[arg(short = "u")]
   u: bool,

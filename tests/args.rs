@@ -1,5 +1,14 @@
 use arg::Args;
 
+#[allow(unused)]
+#[derive(Args, Debug)]
+struct Test2 {
+  #[arg(short = "u")]
+  u: bool,
+
+  paths: Vec<String>,
+}
+
 #[derive(Debug, Args)]
 ///my_exe 0.1.0
 ///About my program

@@ -417,9 +417,7 @@ USAGE:", about_prog);
         let _ = writeln!(result, "{0}{0}{0}{0}}}", TAB);
     }
     //too many args?
-    if arguments.is_empty() {
-        let _ = writeln!(result, "{0}{0}{0}}}", TAB);
-    } else {
+    if !arguments.is_empty() {
         let _ = writeln!(result, "{0}{0}{0}}} else {{", TAB);
     }
 
@@ -431,10 +429,13 @@ USAGE:", about_prog);
     } else {
         let _ = writeln!(result, "{0}{0}{0}{0} return Err(arg::ParseError::TooManyArgs);", TAB);
     }
-    let _ = writeln!(result, "{0}{0}{0}}}", TAB);
     //exit args
-
-    let _ = writeln!(result, "{0}{0}}}", TAB);
+    if !arguments.is_empty() {
+        let _ = writeln!(result, "{0}{0}{0}}}", TAB);
+        let _ = writeln!(result, "{0}{0}}}", TAB);
+    } else {
+        let _ = writeln!(result, "{0}{0}}}", TAB);
+    }
 
     //Set defaults
     for option in options.iter() {

@@ -62,6 +62,24 @@ struct MyArgs {
     remain_paths: Vec<String>,
 }
 
+#[derive(Debug, Args)]
+///My subcommand
+enum BigSubArgs {
+    ///my arguments
+    MyArgs(MyArgs),
+    ///test args
+    Test(Test2),
+}
+
+#[derive(Debug, Args)]
+struct BigArgs {
+    #[arg(long = "verbose")]
+    ///Verbose mode
+    verbose: bool,
+    #[arg(sub)]
+    cmd: BigSubArgs,
+}
+
 #[test]
 fn should_error_on_missing_args() {
     let result = MyArgs::from_text("-f --verbose path1").unwrap_err();
@@ -110,7 +128,46 @@ fn should_handle_all_flags() {
     assert_eq!(result.path, "path1");
     assert_eq!(result.path2, "path2");
     assert_eq!(result.remain_paths, &["rest1", "rest2"]);
+}
 
+#[test]
+fn should_fail_invalid_sub_command() {
+    let result = BigArgs::from_text("--verbose my-invalid-args -f -r 5 --verbose -v 32 -g 1 --gps 55 path1 path2 rest1 rest2").unwrap_err();
+    assert_eq!(result, arg::ParseKind::Top(arg::ParseError::RequiredArgMissing("cmd")));
+}
+
+#[test]
+fn should_fail_sub_command_with_wrong_args() {
+    let result = BigArgs::from_text("--verbose my-args -f -r 5 --verbose -v 32 -g 1 --gps lolka path1 path2 rest1 rest2").unwrap_err();
+    assert_eq!(result, arg::ParseKind::Sub("my-args", arg::ParseError::InvalidFlagValue("gps", "lolka")));
+}
+
+#[test]
+fn should_handle_all_flags_as_sub_command() {
+    let result = BigArgs::from_text("--verbose my-args -f -r 5 --verbose -v 32 -g 1 --gps 55 path1 path2 rest1 rest2").unwrap();
+    assert!(result.verbose);
+    let result = match result.cmd {
+        BigSubArgs::MyArgs(args) => args,
+        unexpected => panic!("invalid sub command result: {:?}", unexpected),
+    };
+    assert!(result.flag);
+    assert!(result.verbose);
+    assert_eq!(result.optional, None);
+    assert_eq!(result.required, 5);
+    assert_eq!(result.speed, 32);
+    assert_eq!(result.gps, &[1, 55]);
+    assert_eq!(result.path, "path1");
+    assert_eq!(result.path2, "path2");
+    assert_eq!(result.remain_paths, &["rest1", "rest2"]);
+
+    let result = BigArgs::from_text("--verbose test -u path1 path2 rest1 rest2").unwrap();
+    assert!(result.verbose);
+    let result = match result.cmd {
+        BigSubArgs::Test(args) => args,
+        unexpected => panic!("invalid sub command result: {:?}", unexpected),
+    };
+    assert!(result.u);
+    assert_eq!(result.paths, &["path1", "path2", "rest1", "rest2"]);
 }
 
 #[test]

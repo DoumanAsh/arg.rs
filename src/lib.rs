@@ -14,6 +14,7 @@
 //! - `long` - Specifies that it is flag with long switch. Optionally can be supplied with flag.
 //! - `default_value` - Specifies default value to use. Can be supplied with initialization expression as string. Otherwise uses Default trait.
 //! - `required` - Specifies whether argument is required. By default all arguments are optional. But booleans cannot be marked as `required`
+//! - `sub` - Specifies field to be sub-command. There can be only one sub-command and it is mutually exclusive with `Vec<_>` argument to collect rest of arguments. All other options are not applied to `sub` type of field.
 //!
 //! ### Types
 //!
@@ -22,6 +23,7 @@
 //! - Multi Option - switch with `Vec<T>` type, which allows to accumulate multiple values of switch.
 //! - Argument - Plain argument that takes value.
 //! - Multi argument - Collection of arguments that accumulates into `Vec<T>`, there can be only one.
+//! - Sub-command - Propagates rest of arguments to another parser, there ca be only one.
 //!
 //! ### Conversion
 //!
@@ -36,10 +38,9 @@
 //!
 //! ### Sub-command
 //!
-//! Code generate relies on enum to represent handling of sub-commands.
+//! It relies on enum to represent sub-commands.
 //!
-//! Note that when sub-command is used, it is no longer possible to collect multiple arguments into
-//! array, resulting in compilation error.
+//! Note that when sub-command is used, it is no longer possible to collect multiple arguments into array, resulting in compilation error.
 //!
 //! Sub-command consumes all remaining arguments, so top command flags/options must be passed prior sub-command invocation.
 //!
@@ -90,6 +91,8 @@
 //!
 //! # Usage
 //!
+//! Here is comprehensive example to illustrate all ways to handle flags and options
+//!
 //! ```rust
 //! use arg::Args;
 //!
@@ -121,7 +124,7 @@
 //!     ///To store path 2
 //!     path2: String,
 //!
-//!     ///To store rest of paths
+//!     ///To store rest of paths as multi argument collector
 //!     remain_paths: Vec<String>,
 //! }
 //!
@@ -244,7 +247,6 @@ pub trait Args: Sized {
         Self::from_args(Split::from_str(text))
     }
 }
-
 
 #[cfg(feature = "std")]
 ///Parses CLI arguments from `std::env::args()`

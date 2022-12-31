@@ -14,6 +14,7 @@
 //! - `long` - Specifies that it is flag with long switch. Optionally can be supplied with flag.
 //! - `default_value` - Specifies default value to use. Can be supplied with initialization expression as string. Otherwise uses Default trait.
 //! - `required` - Specifies whether argument is required. By default all arguments are optional. But booleans cannot be marked as `required`
+//! - `sub` - Specifies field to be sub-command. There can be only one sub-command and it is mutually exclusive with `Vec<_>` argument to collect rest of arguments. All other options are not applied to `sub` type of field.
 //!
 //! ### Types
 //!
@@ -22,6 +23,7 @@
 //! - Multi Option - switch with `Vec<T>` type, which allows to accumulate multiple values of switch.
 //! - Argument - Plain argument that takes value.
 //! - Multi argument - Collection of arguments that accumulates into `Vec<T>`, there can be only one.
+//! - Sub-command - Propagates rest of arguments to another parser, there ca be only one.
 //!
 //! ### Conversion
 //!
@@ -34,7 +36,62 @@
 //!
 //! As result, not providing argument shall not fail parser.
 //!
+//! ### Sub-command
+//!
+//! It relies on enum to represent sub-commands.
+//!
+//! Note that when sub-command is used, it is no longer possible to collect multiple arguments into array, resulting in compilation error.
+//!
+//! Sub-command consumes all remaining arguments, so top command flags/options must be passed prior sub-command invocation.
+//!
+//! ```rust
+//! use arg::Args;
+//!
+//! #[derive(Args, Debug)]
+//! ///First
+//! struct First {
+//!     #[arg(short, long)]
+//!     ///About this flag
+//!     flag: bool,
+//!
+//!     #[arg(short = "v", long = "velocity", default_value = "42")]
+//!     ///This is felocity. Default value is 42.
+//!     speed: u32,
+//! }
+//!
+//! #[derive(Args, Debug)]
+//! ///Second
+//! struct Second {
+//!     #[arg(short = "v", long = "velocity", default_value = "42")]
+//!     ///This is velocity. Default value is 42.
+//!     speed: u32,
+//!     ///To store rest of paths
+//!     paths: Vec<String>,
+//! }
+//!
+//! #[derive(Args, Debug)]
+//! ///My subcommand with implicit command 'help` to list commands
+//! enum MySubCommand {
+//!     ///my first command
+//!     First(First),
+//!     ///my second command
+//!     Second(Second),
+//! }
+//!
+//! #[derive(Args, Debug)]
+//! struct MyArgs {
+//!     #[arg(short, long)]
+//!     ///About this flag
+//!     verbose: bool,
+//!     #[arg(sub)]
+//!     ///My sub command. Use `help` to show list of commands.
+//!     cmd: MySubCommand
+//! }
+//! ```
+//!
 //! # Usage
+//!
+//! Here is comprehensive example to illustrate all ways to handle flags and options
 //!
 //! ```rust
 //! use arg::Args;
@@ -54,7 +111,7 @@
 //!     verbose: Option<bool>,
 //!
 //!     #[arg(short = "v", long = "velocity", default_value = "42")]
-//!     ///This is felocity. Default value is 42.
+//!     ///This is velocity. Default value is 42.
 //!     speed: u32,
 //!
 //!     #[arg(short = "g", long = "gps")]
@@ -67,7 +124,7 @@
 //!     ///To store path 2
 //!     path2: String,
 //!
-//!     ///To store rest of paths
+//!     ///To store rest of paths as multi argument collector
 //!     remain_paths: Vec<String>,
 //! }
 //!
@@ -83,6 +140,7 @@
 #![no_std]
 #![warn(missing_docs)]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::needless_lifetimes))]
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -93,6 +151,25 @@ mod split;
 pub use split::Split;
 
 use core::fmt;
+
+#[derive(PartialEq, Eq, Debug)]
+///Parse errors
+pub enum ParseKind<'a> {
+    ///Main command result
+    Top(ParseError<'a>),
+    ///Sub-command name and result
+    Sub(&'static str, ParseError<'a>),
+}
+
+impl<'a> PartialEq<ParseError<'a>> for ParseKind<'a> {
+    #[inline(always)]
+    fn eq(&self, right: &ParseError<'a>) -> bool {
+        match self {
+            Self::Top(left) => PartialEq::eq(left, right),
+            Self::Sub(_, left) => PartialEq::eq(left, right),
+        }
+    }
+}
 
 #[derive(PartialEq, Eq, Debug)]
 ///Parse errors
@@ -147,20 +224,29 @@ impl<'a> fmt::Display for ParseError<'a> {
     }
 }
 
+impl<'a> fmt::Display for ParseKind<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseKind::Top(res) => fmt::Display::fmt(res, f),
+            ParseKind::Sub(name, res) => write!(f, "{name}: {res}"),
+        }
+    }
+}
+
+
 ///Describers command line argument parser
 pub trait Args: Sized {
     ///Help message for parser.
     const HELP: &'static str;
 
     ///Parses arguments from iterator of strings
-    fn from_args<'a, T: IntoIterator<Item = &'a str>>(args: T) -> Result<Self, ParseError<'a>>;
+    fn from_args<'a, T: IntoIterator<Item = &'a str>>(args: T) -> Result<Self, ParseKind<'a>>;
 
     ///Parses arguments from string, which gets tokenized and passed to from.
-    fn from_text<'a>(text: &'a str) -> Result<Self, ParseError<'a>> {
+    fn from_text<'a>(text: &'a str) -> Result<Self, ParseKind<'a>> {
         Self::from_args(Split::from_str(text))
     }
 }
-
 
 #[cfg(feature = "std")]
 ///Parses CLI arguments from `std::env::args()`
@@ -174,7 +260,11 @@ pub fn parse_args<T: Args>() -> T {
         let args: std::vec::Vec<_> = std::env::args().skip(1).collect();
         match T::from_args(args.iter().map(std::string::String::as_str)) {
             Ok(args) => return args,
-            Err(ParseError::HelpRequested(help)) => {
+            Err(ParseKind::Sub(name, ParseError::HelpRequested(help))) => {
+                std::println!("{name}: {}", help);
+                0
+            },
+            Err(ParseKind::Top(ParseError::HelpRequested(help))) => {
                 std::println!("{}", help);
                 0
             },

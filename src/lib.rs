@@ -161,6 +161,17 @@ pub enum ParseKind<'a> {
     Sub(&'static str, ParseError<'a>),
 }
 
+impl<'a> ParseKind<'a> {
+    #[inline]
+    ///Returns whether help is requested
+    pub fn is_help(&self) -> bool {
+        match self {
+            Self::Top(err) => err.is_help(),
+            Self::Sub(_, err) => err.is_help(),
+        }
+    }
+}
+
 impl<'a> PartialEq<ParseError<'a>> for ParseKind<'a> {
     #[inline(always)]
     fn eq(&self, right: &ParseError<'a>) -> bool {

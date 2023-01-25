@@ -20,6 +20,7 @@ struct Test2 {
   paths: Vec<String>,
 }
 
+
 #[derive(Debug, Args)]
 ///my_exe 0.1.0
 ///About my program

@@ -62,7 +62,14 @@ fn parse_segment(segment: &syn::PathSegment) -> OptValueType {
 
 fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
     let mut about_prog = String::new();
-    for attr in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+    for attr in ast.attrs.iter() {
+        let attr = match attr.parse_meta() {
+            Ok(attr) => attr,
+            Err(error) => {
+                return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
+            }
+        };
+
         match attr {
             syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                 if let syn::Lit::Str(ref text) = value.lit {
@@ -88,7 +95,14 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
             return syn::Error::new_spanned(&variant.ident, "Oi, mate, You cannot use variant 'Help'").to_compile_error().into()
         }
 
-        for attr in variant.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+        for attr in variant.attrs.iter() {
+            let attr = match attr.parse_meta() {
+                Ok(attr) => attr,
+                Err(error) => {
+                    return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
+                }
+            };
+
             match attr {
                 syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                     if let syn::Lit::Str(ref text) = value.lit {
@@ -214,7 +228,14 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
 
 fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream {
     let mut about_prog = String::new();
-    for attr in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+    for attr in ast.attrs.iter() {
+        let attr = match attr.parse_meta() {
+            Ok(attr) => attr,
+            Err(error) => {
+                return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
+            }
+        };
+
         match attr {
             syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                 if let syn::Lit::Str(ref text) = value.lit {
@@ -290,7 +311,14 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
 
         let mut default = None;
 
-        for attr in field.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
+        for attr in field.attrs.iter() {
+            let attr = match attr.parse_meta() {
+                Ok(attr) => attr,
+                Err(error) => {
+                    return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
+                }
+            };
+
             match attr {
                 syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                     if let syn::Lit::Str(ref text) = value.lit {

@@ -6,7 +6,7 @@
 
 Very simple code generator for command line argument parsing.
 
-No dependencies.
+No dependencies except proc macro (with its dependencies) used at build time.
 
 ## Features
 

@@ -118,6 +118,10 @@
 //!     ///GPS coordinates.
 //!     gps: Vec<u32>,
 //!
+//!     #[arg(short, long, default_value = "\"./address.txt\".to_owned()")]
+//!     ///Extra to show how to set default string value
+//!     extra: String,
+//!
 //!     ///To store path
 //!     path: String,
 //!

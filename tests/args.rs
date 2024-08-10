@@ -143,9 +143,16 @@ fn should_handle_all_flags() {
 }
 
 #[test]
+fn should_fail_missing_sub_command() {
+    let result = BigArgs::from_text("--verbose").unwrap_err();
+    println!("result={result}");
+    assert_eq!(result, arg::ParseKind::Top(arg::ParseError::HelpRequested("Missing command, possible values: [my-args, test]\nSee 'help' for details")));
+}
+
+#[test]
 fn should_fail_invalid_sub_command() {
     let result = BigArgs::from_text("--verbose my-invalid-args -f -r 5 --verbose -v 32 -g 1 --gps 55 path1 path2 rest1 rest2").unwrap_err();
-    assert_eq!(result, arg::ParseKind::Top(arg::ParseError::RequiredArgMissing("cmd")));
+    assert_eq!(result, arg::ParseKind::Top(arg::ParseError::InvalidArgValue("cmd", "my-invalid-args")));
 }
 
 #[test]

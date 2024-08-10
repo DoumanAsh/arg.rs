@@ -189,7 +189,12 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
     let _ = writeln!(result, "{0}{0}{0}{0}return Err(arg::ParseKind::Top(arg::ParseError::HelpRequested(Self::HELP)));", TAB);
     let _ = write!(result, "{0}{0}{0}}}", TAB);
 
+    let mut allowed_commands = String::new();
     for command in commands.iter() {
+        allowed_commands.push_str(command.command_name.as_str());
+        allowed_commands.push(',');
+        allowed_commands.push(' ');
+
         //arg START
         let _ = writeln!(result, " else if _arg_.eq_ignore_ascii_case(\"{}\") {{", command.command_name);
 
@@ -203,10 +208,18 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
         let _ = write!(result, "{0}{0}{0}}}", TAB);
     }
 
+    //invalid arg
+    let _ = writeln!(result, " else {{");
+    let _ = writeln!(result, "{0}{0}{0}{0}return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"command\", _arg_)))", TAB);
+    let _ = write!(result, "{0}{0}{0}}}", TAB);
+
     //args END
     let _ = writeln!(result, "\n{0}{0}}}", TAB);
 
-    let _ = writeln!(result, "{0}{0}Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"command\")))", TAB);
+    allowed_commands.pop();
+    allowed_commands.pop();
+    //Missing sub-command
+    let _ = writeln!(result, "{0}{0}Err(arg::ParseKind::Top(arg::ParseError::HelpRequested(\"Missing command, possible values: [{1}]\nSee 'help' for details\")))", TAB, allowed_commands);
 
     //from_args END
     let _ = writeln!(result, "{}}}", TAB);
@@ -660,6 +673,7 @@ USAGE:", about_prog);
     } else if let Some(command) = sub_command.as_ref() {
         let _ = writeln!(result, "{0}{0}{0}{0}match {1}::from_args(core::iter::once(_arg_).chain(_args_)) {{", TAB, PARSER_TRAIT);
         let _ = writeln!(result, "{0}{0}{0}{0}{0}Ok(_res_) => {{ {1} = Some(_res_); break; }},", TAB, command.field_name);
+        let _ = writeln!(result, "{0}{0}{0}{0}{0}Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(_, invalid_value))) => return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{1}\", invalid_value))),", TAB, command.field_name);
         let _ = writeln!(result, "{0}{0}{0}{0}{0}Err(arg::ParseKind::Top(_)) => return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{1}\"))),", TAB, command.field_name);
         let _ = writeln!(result, "{0}{0}{0}{0}{0}Err(arg::ParseKind::Sub(name, error)) => return Err(arg::ParseKind::Sub(name, error)),", TAB);
         let _ = writeln!(result, "{0}{0}{0}{0}}}", TAB);
@@ -704,7 +718,15 @@ USAGE:", about_prog);
     }
 
     if let Some(command) = sub_command.as_ref() {
-        let _ = writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{2}\"))) }};", TAB, command.field_name, command.name);
+        let _ = writeln!(result, "{0}{0}let {1} = match {1} {{", TAB, command.field_name);
+        let _ = writeln!(result, "{0}{0}{0}Some({1}) => {1},", TAB, command.field_name);
+        //Generate sub-command help
+        let _ = writeln!(result, "{0}{0}{0}None => match {1}::from_args([]) {{", TAB, PARSER_TRAIT);
+        let _ = writeln!(result, "{0}{0}{0}{0}Ok({1}) => {1},", TAB, command.field_name);
+        let _ = writeln!(result, "{0}{0}{0}{0}Err(error) => return Err(error),", TAB);
+        let _ = writeln!(result, "{0}{0}{0}}}", TAB);
+        ///Finalize sub-command handling
+        let _ = writeln!(result, "{0}{0}}};", TAB);
     }
 
     //Fill result

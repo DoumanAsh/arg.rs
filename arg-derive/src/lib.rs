@@ -1,5 +1,7 @@
 //! Command line argument parser derive
 
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
+
 extern crate proc_macro;
 
 mod utils;
@@ -63,20 +65,16 @@ fn parse_segment(segment: &syn::PathSegment) -> OptValueType {
 fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
     let mut about_prog = String::new();
     for attr in ast.attrs.iter() {
-        let attr = match attr.parse_meta() {
-            Ok(attr) => attr,
-            Err(error) => {
-                return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
-            }
-        };
-
-        match attr {
+        match &attr.meta {
             syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
-                if let syn::Lit::Str(ref text) = value.lit {
+                let literal = match &value.value {
+                    syn::Expr::Lit(literal) => &literal.lit,
+                    _ => return syn::Error::new_spanned(value.clone(), "Attribute should be liberal").to_compile_error().into()
+                };
+                if let syn::Lit::Str(ref text) = literal {
                     about_prog.push_str(&text.value());
                     about_prog.push_str("\n");
                 }
-            } else {
             },
             _ => (),
         }
@@ -96,16 +94,14 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
         }
 
         for attr in variant.attrs.iter() {
-            let attr = match attr.parse_meta() {
-                Ok(attr) => attr,
-                Err(error) => {
-                    return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
-                }
-            };
-
-            match attr {
+            match &attr.meta {
                 syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
-                    if let syn::Lit::Str(ref text) = value.lit {
+                    let literal = match &value.value {
+                        syn::Expr::Lit(literal) => &literal.lit,
+                        _ => return syn::Error::new_spanned(value.clone(), "Attribute should be liberal").to_compile_error().into()
+                    };
+
+                    if let syn::Lit::Str(ref text) = literal {
                         desc.push_str(&text.value());
                         desc.push_str(" ");
                     }
@@ -121,7 +117,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
                 if fields.unnamed.empty_or_trailing() {
                     return syn::Error::new_spanned(&fields, "MUST specify single field").to_compile_error().into();
                 } else if fields.unnamed.len() > 1 {
-                    return syn::Error::new_spanned(&fields, "MUST not specify more than 1 field").to_compile_error().into();
+                    return syn::Error::new_spanned(fields, "MUST not specify more than 1 field").to_compile_error().into();
                 } else {
                     fields.unnamed.first().unwrap()
                 }
@@ -132,17 +128,17 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
             syn::Type::Path(ref ty) => {
                 let ty = ty.path.segments.last().expect("To have at least one segment");
                 if ty.ident == "Option" {
-                    return syn::Error::new_spanned(&ty, "Command cannot be optional").to_compile_error().into()
+                    return syn::Error::new_spanned(ty, "Command cannot be optional").to_compile_error().into()
                 } else {
                     match parse_segment(ty) {
-                        OptValueType::Bool => return syn::Error::new_spanned(&ty, "Command value cannot be boolean").to_compile_error().into(),
-                        OptValueType::MultiValue => return syn::Error::new_spanned(&ty, "Command value Vec<_>").to_compile_error().into(),
+                        OptValueType::Bool => return syn::Error::new_spanned(ty, "Command value cannot be boolean").to_compile_error().into(),
+                        OptValueType::MultiValue => return syn::Error::new_spanned(ty, "Command value Vec<_>").to_compile_error().into(),
                         _ => (),
                     }
                 }
             },
             ty => {
-                return syn::Error::new_spanned(&ty, "Expected simple ident or path").to_compile_error().into()
+                return syn::Error::new_spanned(ty, "Expected simple ident or path").to_compile_error().into()
             }
         }
 
@@ -154,7 +150,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
     }
 
     if commands.is_empty() {
-        return syn::Error::new_spanned(&ast, "Enum must have at least one variant").to_compile_error().into()
+        return syn::Error::new_spanned(ast, "Enum must have at least one variant").to_compile_error().into()
     }
 
     let (impl_gen, type_gen, where_clause) = ast.generics.split_for_impl();
@@ -165,9 +161,9 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
 
         let mut tw = TabWriter::new(vec![]);
 
-        let _ = write!(tw, "COMMANDS:\n");
+        let _ = writeln!(tw, "COMMANDS:");
         for command in commands.iter() {
-            let _ = write!(tw, "\t{}\t{}\n", command.command_name, command.desc);
+            let _ = writeln!(tw, "\t{}\t{}", command.command_name, command.desc);
         }
 
         let _ = tw.flush();
@@ -229,20 +225,16 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
 fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream {
     let mut about_prog = String::new();
     for attr in ast.attrs.iter() {
-        let attr = match attr.parse_meta() {
-            Ok(attr) => attr,
-            Err(error) => {
-                return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
-            }
-        };
-
-        match attr {
+        match &attr.meta {
             syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
-                if let syn::Lit::Str(ref text) = value.lit {
+                let literal = match &value.value {
+                    syn::Expr::Lit(literal) => &literal.lit,
+                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                };
+                if let syn::Lit::Str(ref text) = literal {
                     about_prog.push_str(&text.value());
-                    about_prog.push_str("\n");
+                    about_prog.push('\n');
                 }
-            } else {
             },
             _ => (),
         }
@@ -312,82 +304,97 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
         let mut default = None;
 
         for attr in field.attrs.iter() {
-            let attr = match attr.parse_meta() {
-                Ok(attr) => attr,
-                Err(error) => {
-                    return syn::Error::new_spanned(attr, format!("cannot parse attribute: {error}")).to_compile_error().into()
-                }
-            };
-
-            match attr {
+            match &attr.meta {
                 syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
-                    if let syn::Lit::Str(ref text) = value.lit {
+                    let literal = match &value.value {
+                        syn::Expr::Lit(literal) => &literal.lit,
+                        _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                    };
+                    if let syn::Lit::Str(ref text) = literal {
                         desc.push_str(&text.value());
-                        desc.push_str(" ");
+                        desc.push(' ');
                     }
                 },
                 syn::Meta::List(value) => if value.path.is_ident("arg") {
-                    for value_attr in value.nested.iter() {
+                    let nested = match attr.parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated) {
+                        Ok(nested) => nested,
+                        Err(error) => {
+                            let error = format!("arg attribute should be list of attributes: {error}");
+                            return syn::Error::new_spanned(value, error).to_compile_error().into();
+                        }
+                    };
+
+                    for value_attr in nested {
                         match value_attr {
-                            syn::NestedMeta::Meta(value_attr) => {
-                                match value_attr {
-                                    syn::Meta::Path(value_attr) => if value_attr.is_ident("short") {
-                                        short = Some(format!("{}", name.chars().next().unwrap()).to_lowercase());
-                                    } else if value_attr.is_ident("long") {
-                                        long = Some(name.to_lowercase());
-                                    } else if value_attr.is_ident("default_value") {
-                                        default = Some(DEFAULT_INIT.to_owned());
-                                    } else if value_attr.is_ident("required") {
-                                        if typ != OptValueType::Bool {
-                                            required = true
-                                        } else {
-                                            return syn::Error::new_spanned(value_attr, INVALID_REQUIRED_BOOL).to_compile_error().into();
-                                        }
-                                    } else if value_attr.is_ident("sub") {
-                                        if typ == OptValueType::Value {
-                                            is_sub = true;
-                                        } else {
-                                            return syn::Error::new_spanned(value_attr, "Sub-command must be simple value").to_compile_error().into();
-                                        }
-                                    }
-                                    syn::Meta::NameValue(value_attr) => if value_attr.path.is_ident("short") {
-                                        if let syn::Lit::Str(ref text) = value_attr.lit {
-                                            let value_attr_text = text.value();
-
-                                            if value_attr_text.contains(ARG_INVALID_CHARS) {
-                                                return syn::Error::new_spanned(value_attr.lit.clone(), ARG_NAME_SPACE_ERROR).to_compile_error().into();
-                                            }
-
-                                            short = Some(value_attr_text);
-                                        } else {
-                                            return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
-                                        }
-                                    } else if value_attr.path.is_ident("long") {
-                                        if let syn::Lit::Str(ref text) = value_attr.lit {
-                                            let value_attr_text = text.value();
-
-                                            if value_attr_text.contains(ARG_INVALID_CHARS) {
-                                                return syn::Error::new_spanned(value_attr.lit.clone(), ARG_NAME_SPACE_ERROR).to_compile_error().into();
-                                            }
-
-                                            long = Some(value_attr_text)
-                                        } else {
-                                            return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
-                                        }
-                                    } else if value_attr.path.is_ident("default_value") {
-                                        if let syn::Lit::Str(ref text) = value_attr.lit {
-                                            default = Some(text.value());
-                                        } else {
-                                            return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
-                                        }
-                                    } else {
-                                        return syn::Error::new_spanned(value_attr.path.clone(), UNKNOWN_ARG_ATTR).to_compile_error().into();
-                                    }
-                                    _ => {
-                                    },
+                            syn::Meta::Path(value_attr) => if value_attr.is_ident("short") {
+                                short = Some(format!("{}", name.chars().next().unwrap()).to_lowercase());
+                            } else if value_attr.is_ident("long") {
+                                long = Some(name.to_lowercase());
+                            } else if value_attr.is_ident("default_value") {
+                                default = Some(DEFAULT_INIT.to_owned());
+                            } else if value_attr.is_ident("required") {
+                                if typ != OptValueType::Bool {
+                                    required = true
+                                } else {
+                                    return syn::Error::new_spanned(value_attr, INVALID_REQUIRED_BOOL).to_compile_error().into();
                                 }
+                            } else if value_attr.is_ident("sub") {
+                                if typ == OptValueType::Value {
+                                    is_sub = true;
+                                } else {
+                                    return syn::Error::new_spanned(value_attr, "Sub-command must be simple value").to_compile_error().into();
+                                }
+                            }
+                            syn::Meta::NameValue(value_attr) => if value_attr.path.is_ident("short") {
+                                let literal = match &value_attr.value {
+                                    syn::Expr::Lit(literal) => &literal.lit,
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                                };
+
+                                if let syn::Lit::Str(ref text) = literal {
+                                    let value_attr_text = text.value();
+
+                                    if value_attr_text.contains(ARG_INVALID_CHARS) {
+                                        return syn::Error::new_spanned(literal.clone(), ARG_NAME_SPACE_ERROR).to_compile_error().into();
+                                    }
+
+                                    short = Some(value_attr_text);
+                                } else {
+                                    return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
+                                }
+                            } else if value_attr.path.is_ident("long") {
+                                let literal = match &value_attr.value {
+                                    syn::Expr::Lit(literal) => &literal.lit,
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                                };
+
+                                if let syn::Lit::Str(ref text) = literal {
+                                    let value_attr_text = text.value();
+
+                                    if value_attr_text.contains(ARG_INVALID_CHARS) {
+                                        return syn::Error::new_spanned(literal.clone(), ARG_NAME_SPACE_ERROR).to_compile_error().into();
+                                    }
+
+                                    long = Some(value_attr_text)
+                                } else {
+                                    return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
+                                }
+                            } else if value_attr.path.is_ident("default_value") {
+                                let literal = match &value_attr.value {
+                                    syn::Expr::Lit(literal) => &literal.lit,
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                                };
+
+                                if let syn::Lit::Str(ref text) = literal {
+                                    default = Some(text.value());
+                                } else {
+                                    return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
+                                }
+                            } else {
+                                return syn::Error::new_spanned(value_attr.path.clone(), UNKNOWN_ARG_ATTR).to_compile_error().into();
+                            }
+                            _ => {
                             },
-                            syn::NestedMeta::Lit(_) => (),
                         }
                     }
                 },
@@ -527,7 +534,7 @@ USAGE:", about_prog);
                 _ => Ok(()),
             };
 
-            let _ = write!(tw, "\t{}\n", option.arg.desc);
+            let _ = writeln!(tw, "\t{}", option.arg.desc);
         }
 
         if !arguments.is_empty() || multi_argument.is_some() || sub_command.is_some() {
@@ -621,7 +628,7 @@ USAGE:", about_prog);
 {0}{0}{0}{0}{0}{0}None => return Err(arg::ParseKind::Top(arg::ParseError::MissingValue(\"{3}\"))),
 {0}{0}{0}{0}{0}}}", TAB, FROM_FN, option.arg.field_name, option.arg.name),
         };
-        let _ = writeln!(result, "");
+        result.push('\n');
     }
     let _ = writeln!(result, "{0}{0}{0}{0}{0}_ => return Err(arg::ParseKind::Top(arg::ParseError::UnknownFlag(_arg_))),", TAB);
 

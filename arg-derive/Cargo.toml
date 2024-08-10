@@ -1,6 +1,6 @@
 [package]
 name = "arg-derive"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Douman <douman@gmx.se>"]
 edition = "2018"
 repository = "https://github.com/DoumanAsh/arg.rs"
@@ -15,7 +15,7 @@ description = "Derive for arg crate"
 proc-macro = true
 
 [dependencies.syn]
-version = "1"
+version = "2"
 features = ["extra-traits"]
 
 [dependencies]

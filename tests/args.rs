@@ -20,6 +20,12 @@ struct Test2 {
   paths: Vec<String>,
 }
 
+#[allow(unused)]
+#[derive(Args, Debug)]
+struct BoolOptionArgs {
+    #[arg(required)]
+    option: bool,
+}
 
 #[derive(Debug, Args)]
 ///my_exe 0.1.0
@@ -100,11 +106,16 @@ fn should_error_on_missing_flag_value() {
 }
 
 #[test]
+fn should_error_on_missing_option_bool() {
+    let result = BoolOptionArgs::from_text("").unwrap_err();
+    assert_eq!(result, arg::ParseError::RequiredArgMissing("option"));
+}
+
+#[test]
 fn should_error_on_invalid_flag_value() {
     let result = MyArgs::from_text("-f -r gg").unwrap_err();
     assert_eq!(result, arg::ParseError::InvalidFlagValue("required", "gg"));
 }
-
 
 #[test]
 fn should_handle_all_flags() {

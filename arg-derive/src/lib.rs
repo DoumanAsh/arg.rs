@@ -333,11 +333,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                             } else if value_attr.is_ident("default_value") {
                                 default = Some(DEFAULT_INIT.to_owned());
                             } else if value_attr.is_ident("required") {
-                                if typ != OptValueType::Bool {
-                                    required = true
-                                } else {
-                                    return syn::Error::new_spanned(value_attr, INVALID_REQUIRED_BOOL).to_compile_error().into();
-                                }
+                                required = true;
                             } else if value_attr.is_ident("sub") {
                                 if typ == OptValueType::Value {
                                     is_sub = true;
@@ -396,7 +392,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                             _ => {
                             },
                         }
-                    }
+                    } //nested meta
                 },
                 _ => (),
             }
@@ -458,8 +454,13 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     default,
                 })
             }
-
         } else {
+            //Switches
+            if OptValueType::Bool == typ && required {
+                //boolean switch makes no sense as required
+                return syn::Error::new_spanned(field.ident.clone(), INVALID_REQUIRED_BOOL).to_compile_error().into();
+            }
+
             let long = match long {
                 Some(long) => long,
                 None => name.clone()

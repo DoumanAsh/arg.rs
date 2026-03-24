@@ -42,6 +42,7 @@ struct Command {
     desc: String,
 }
 
+const CONCAT_DEFAULT_PROG_NAME_ARGS: &str = "env!(\"CARGO_PKG_NAME\"), \" \", env!(\"CARGO_PKG_VERSION\")";
 const FROM_FN: &str = "core::str::FromStr::from_str";
 const TAB: &str = "    ";
 const PARSER_TRAIT: &str = "arg::Args";
@@ -236,6 +237,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
 }
 
 fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream {
+    let mut infer_prog_name = false;
     let mut about_prog = String::new();
     for attr in ast.attrs.iter() {
         match &attr.meta {
@@ -247,6 +249,26 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                 if let syn::Lit::Str(ref text) = literal {
                     about_prog.push_str(&text.value());
                     about_prog.push('\n');
+                }
+            },
+            syn::Meta::List(list) => if list.path.is_ident("arg") {
+                let nested = match attr.parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated) {
+                    Ok(nested) => nested,
+                    Err(error) => {
+                        let error = format!("arg attribute should be list of attributes: {error}");
+                        return syn::Error::new_spanned(list, error).to_compile_error().into();
+                    }
+                };
+                for value_attr in nested {
+                    match value_attr {
+                        syn::Meta::Path(value_attr) => if value_attr.is_ident("infer_name") {
+                            infer_prog_name = true;
+                        } else {
+                            let ident = utils::FormatOptionalIdent(value_attr.get_ident());
+                            return syn::Error::new_spanned(&value_attr, format!("Unknown attribute: '{ident}'. Expected: infer_name")).to_compile_error().into();
+                        },
+                        unexpected => return syn::Error::new_spanned(&unexpected, "Unexpected attribute").to_compile_error().into(),
+                    }
                 }
             },
             _ => (),
@@ -576,7 +598,11 @@ USAGE:", about_prog);
 
     let mut result = String::new();
     let _ = writeln!(result, "{} {} for {}{} {{", quote!(impl#impl_gen), PARSER_TRAIT, ast.ident, quote!(#type_gen #where_clause));
-    let _ = writeln!(result, "{}const HELP: &'static str = \"{}\";", TAB, help_msg);
+    if infer_prog_name {
+        let _ = writeln!(result, "{}const HELP: &'static str = core::concat!({CONCAT_DEFAULT_PROG_NAME_ARGS}, \"\n\", \"{}\");", TAB, help_msg);
+    } else {
+        let _ = writeln!(result, "{}const HELP: &'static str = \"{}\";", TAB, help_msg);
+    }
 
     let _ = writeln!(result, "{}fn from_args<'a, T: IntoIterator<Item = &'a str>>(_args_: T) -> Result<Self, arg::ParseKind<'a>> {{", TAB);
 

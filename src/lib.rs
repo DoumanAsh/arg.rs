@@ -6,6 +6,12 @@
 //!
 //! # Syntax
 //!
+//! ## Struct
+//!
+//! ### Arg
+//!
+//! - `infer_name` - Specifies to insert binary name/version as combination of `env!("CARGO_PKG_NAME")` and  `env!("CARGO_PKG_VERSION")`. Applicable only to `struct`
+//!
 //! ## Fields
 //!
 //! ### Arg

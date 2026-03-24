@@ -1,3 +1,17 @@
+use core::fmt;
+
+pub struct FormatOptionalIdent<'a>(pub Option<&'a syn::Ident>);
+
+impl fmt::Display for FormatOptionalIdent<'_> {
+    #[inline(always)]
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Some(ident) => fmt::Display::fmt(ident, fmt),
+            None => Ok(())
+        }
+    }
+}
+
 pub fn to_hyphenated_lower_case(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
 
@@ -34,3 +48,4 @@ pub fn to_hyphenated_lower_case(input: &str) -> String {
 
     output
 }
+

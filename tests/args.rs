@@ -28,7 +28,7 @@ struct BoolOptionArgs {
 }
 
 #[derive(Debug, Args)]
-///my_exe 0.1.0
+#[arg(infer_name)]
 ///About my program
 ///
 ///About my program
@@ -85,6 +85,32 @@ struct BigArgs {
     verbose: bool,
     #[arg(sub)]
     cmd: BigSubArgs,
+}
+
+#[test]
+fn should_assert_help() {
+    const EXPECTED: &str = r#"arg 0.4.2
+About my program
+
+About my program
+
+USAGE: [OPTIONS] <path> <path2> [remain_paths]...
+
+OPTIONS:
+    -h,  --help                 Prints this help information
+    -r,  --required <required>  Required argument
+    -o,  --optional <optional>  Optional argument
+    -f,  --flag                 About this flag
+         --verbose              Verbose mode
+    -v,  --velocity <speed>     This is felocity. Default value is 42.
+    -g,  --gps <gps>...         GPS coordinates.
+
+ARGS:
+    <path>             To store path
+    <path2>            To store path 2
+    <remain_paths>...  To store rest of paths
+"#;
+    assert_eq!(MyArgs::HELP, EXPECTED);
 }
 
 #[test]

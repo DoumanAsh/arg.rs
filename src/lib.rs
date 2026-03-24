@@ -143,8 +143,8 @@
 
 #![no_std]
 #![warn(missing_docs)]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::needless_lifetimes))]
+#![allow(clippy::style)]
+#![allow(clippy::needless_lifetimes)]
 
 #[cfg(feature = "std")]
 extern crate std;

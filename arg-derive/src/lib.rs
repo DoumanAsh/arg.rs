@@ -1,6 +1,6 @@
 //! Command line argument parser derive
 
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
+#![allow(clippy::style)]
 
 extern crate proc_macro;
 
@@ -725,7 +725,7 @@ USAGE:", about_prog);
         let _ = writeln!(result, "{0}{0}{0}{0}Ok({1}) => {1},", TAB, command.field_name);
         let _ = writeln!(result, "{0}{0}{0}{0}Err(error) => return Err(error),", TAB);
         let _ = writeln!(result, "{0}{0}{0}}}", TAB);
-        ///Finalize sub-command handling
+        //Finalize sub-command handling
         let _ = writeln!(result, "{0}{0}}};", TAB);
     }
 

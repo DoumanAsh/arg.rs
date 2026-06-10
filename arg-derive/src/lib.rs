@@ -10,7 +10,52 @@ use utils::*;
 use proc_macro::TokenStream;
 use quote::quote;
 
-use core::fmt::Write;
+use core::fmt::{self, Write};
+
+struct ArgumentEnvInit<'a> {
+    env_key: &'a Option<String>,
+    prefix: &'a str,
+    field_name: &'a str,
+}
+
+impl fmt::Display for ArgumentEnvInit<'_> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            env_key,
+            prefix,
+            field_name,
+        } = self;
+        if let Some(env_key) = env_key {
+            fmt.write_fmt(format_args!("else if let Ok(_value_) = ::std::env::var(\"{prefix}{env_key}\") {{ match {FROM_FN}(&_value_) {{ Ok(_value_) => _value_, Err(error) => return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{field_name}\", \"${prefix}{env_key}\"))) }} }}"))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+struct ArgumentEnvDesc<'a> {
+    env_key: &'a Option<String>,
+    prefix: &'a str,
+    desc: &'a str,
+}
+
+impl fmt::Display for ArgumentEnvDesc<'_> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            env_key,
+            prefix,
+            desc,
+        } = self;
+
+        if let Some(env_key) = &env_key {
+            let desc = desc.trim().trim_end_matches('.');
+            fmt.write_fmt(format_args!("{desc}. Can be set via env {prefix}{env_key}"))
+        } else {
+            fmt.write_str(desc)
+        }
+    }
+}
+
 
 struct Argument {
     field_name: String,
@@ -19,6 +64,27 @@ struct Argument {
     required: bool,
     is_optional: bool,
     default: Option<String>,
+    env_key: Option<String>,
+}
+
+impl Argument {
+    #[inline]
+    fn env_init_fmt<'a>(&'a self, prefix: &'a str, field_name: &'a str) -> ArgumentEnvInit<'a> {
+        ArgumentEnvInit {
+            env_key: &self.env_key,
+            prefix,
+            field_name,
+        }
+    }
+
+    #[inline]
+    fn env_desc_fmt<'a>(&'a self, prefix: &'a str) -> ArgumentEnvDesc<'a> {
+        ArgumentEnvDesc {
+            env_key: &self.env_key,
+            prefix,
+            desc: &self.desc
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -70,7 +136,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
             syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                 let literal = match &value.value {
                     syn::Expr::Lit(literal) => &literal.lit,
-                    _ => return syn::Error::new_spanned(value.clone(), "Attribute should be liberal").to_compile_error().into()
+                    _ => return syn::Error::new_spanned(value.clone(), "Attribute should be literal").to_compile_error().into()
                 };
                 if let syn::Lit::Str(ref text) = literal {
                     about_prog.push_str(&text.value());
@@ -99,7 +165,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
                 syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                     let literal = match &value.value {
                         syn::Expr::Lit(literal) => &literal.lit,
-                        _ => return syn::Error::new_spanned(value.clone(), "Attribute should be liberal").to_compile_error().into()
+                        _ => return syn::Error::new_spanned(value.clone(), "Attribute should be literal").to_compile_error().into()
                     };
 
                     if let syn::Lit::Str(ref text) = literal {
@@ -237,6 +303,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
 }
 
 fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream {
+    let mut env_prefix = None;
     let mut infer_prog_name = false;
     let mut about_prog = String::new();
     for attr in ast.attrs.iter() {
@@ -244,7 +311,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                 let literal = match &value.value {
                     syn::Expr::Lit(literal) => &literal.lit,
-                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                    _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into()
                 };
                 if let syn::Lit::Str(ref text) = literal {
                     about_prog.push_str(&text.value());
@@ -267,6 +334,19 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                             let ident = utils::FormatOptionalIdent(value_attr.get_ident());
                             return syn::Error::new_spanned(&value_attr, format!("Unknown attribute: '{ident}'. Expected: infer_name")).to_compile_error().into();
                         },
+                        syn::Meta::NameValue(value_attr) => if value_attr.path.is_ident("env_prefix") {
+                            match &value_attr.value {
+                                syn::Expr::Lit(literal) => match &literal.lit {
+                                    syn::Lit::Str(literal) => {
+                                        env_prefix = Some(literal.value());
+                                    }
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be string").to_compile_error().into(),
+                                },
+                                _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into(),
+                            }
+                        } else {
+                            return syn::Error::new_spanned(&value_attr, format!("Unknown attribute: '{}'. Expected: infer_name", value_attr.path.get_ident().unwrap())).to_compile_error().into();
+                        }
                         unexpected => return syn::Error::new_spanned(&unexpected, "Unexpected attribute").to_compile_error().into(),
                     }
                 }
@@ -274,6 +354,18 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             _ => (),
         }
     }
+
+    let env_prefix = match env_prefix {
+        Some(prefix) => {
+            let prefix = prefix.trim();
+            if prefix.is_empty() {
+                String::new()
+            } else {
+                format!("{prefix}_")
+            }
+        },
+        None => "ARG_".to_owned(),
+    };
 
     about_prog.pop();
 
@@ -288,6 +380,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             required: false,
             is_optional: false,
             default: None,
+            env_key: None,
         },
         short: Some("h".to_owned()),
         long: "help".to_owned(),
@@ -337,13 +430,14 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
         }
 
         let mut default = None;
+        let mut env_key = None;
 
         for attr in field.attrs.iter() {
             match &attr.meta {
                 syn::Meta::NameValue(value) => if value.path.is_ident("doc") {
                     let literal = match &value.value {
                         syn::Expr::Lit(literal) => &literal.lit,
-                        _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                        _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into()
                     };
                     if let syn::Lit::Str(ref text) = literal {
                         desc.push_str(&text.value());
@@ -367,6 +461,8 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                                 long = Some(name.to_lowercase());
                             } else if value_attr.is_ident("default_value") {
                                 default = Some(DEFAULT_INIT.to_owned());
+                            } else if value_attr.is_ident("env_value") {
+                                env_key = Some(name.to_uppercase());
                             } else if value_attr.is_ident("required") {
                                 required = true;
                             } else if value_attr.is_ident("sub") {
@@ -375,11 +471,13 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                                 } else {
                                     return syn::Error::new_spanned(value_attr, "Sub-command must be simple value").to_compile_error().into();
                                 }
+                            } else {
+                                return syn::Error::new_spanned(&value_attr, UNKNOWN_ARG_ATTR).to_compile_error().into();
                             }
                             syn::Meta::NameValue(value_attr) => if value_attr.path.is_ident("short") {
                                 let literal = match &value_attr.value {
                                     syn::Expr::Lit(literal) => &literal.lit,
-                                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into()
                                 };
 
                                 if let syn::Lit::Str(ref text) = literal {
@@ -396,7 +494,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                             } else if value_attr.path.is_ident("long") {
                                 let literal = match &value_attr.value {
                                     syn::Expr::Lit(literal) => &literal.lit,
-                                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into()
                                 };
 
                                 if let syn::Lit::Str(ref text) = literal {
@@ -413,11 +511,22 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                             } else if value_attr.path.is_ident("default_value") {
                                 let literal = match &value_attr.value {
                                     syn::Expr::Lit(literal) => &literal.lit,
-                                    _ => return syn::Error::new_spanned(attr, "Attribute should be liberal").to_compile_error().into()
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into()
                                 };
 
                                 if let syn::Lit::Str(ref text) = literal {
                                     default = Some(text.value());
+                                } else {
+                                    return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
+                                }
+                            } else if value_attr.path.is_ident("env_value") {
+                                let literal = match &value_attr.value {
+                                    syn::Expr::Lit(literal) => &literal.lit,
+                                    _ => return syn::Error::new_spanned(attr, "Attribute should be literal").to_compile_error().into()
+                                };
+
+                                if let syn::Lit::Str(ref text) = literal {
+                                    env_key = Some(text.value());
                                 } else {
                                     return syn::Error::new_spanned(value_attr.path.clone(), INVALID_ARG_TYPE_STRING).to_compile_error().into();
                                 }
@@ -453,6 +562,8 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     return syn::Error::new_spanned(field.ident.clone(), "Second argument collection. There can be only one").to_compile_error().into();
                 } else if sub_command.is_some() {
                     return syn::Error::new_spanned(field.ident.clone(), "Multi-argument collection and sub-command are mutually exclusive").to_compile_error().into();
+                } else if env_key.is_some() {
+                    return syn::Error::new_spanned(field.ident.clone(), "Multi-argument cannot be supplied with `env_value` parameter").to_compile_error().into();
                 }
 
                 multi_argument = Some(Argument {
@@ -462,6 +573,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     required,
                     is_optional,
                     default,
+                    env_key,
                 });
 
             } else if is_sub {
@@ -469,6 +581,8 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     return syn::Error::new_spanned(field.ident.clone(), "Second sub-command. There can be only one").to_compile_error().into();
                 } else if multi_argument.is_some() {
                     return syn::Error::new_spanned(field.ident.clone(), "Sub-command and multi-argument collection are mutually exclusive").to_compile_error().into();
+                } else if env_key.is_some() {
+                    return syn::Error::new_spanned(field.ident.clone(), "Sub-command cannot be supplied with `env_value` parameter").to_compile_error().into();
                 }
 
                 sub_command = Some(Argument {
@@ -478,6 +592,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     required: true,
                     is_optional: false,
                     default: None,
+                    env_key,
                 });
             } else {
                 arguments.push(Argument {
@@ -487,6 +602,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     required,
                     is_optional,
                     default,
+                    env_key,
                 })
             }
         } else {
@@ -509,6 +625,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     required,
                     is_optional,
                     default,
+                    env_key,
                 },
                 short,
                 long,
@@ -570,7 +687,9 @@ USAGE:", about_prog);
                 _ => Ok(()),
             };
 
-            let _ = writeln!(tw, "\t{}", option.arg.desc);
+
+            let desc = option.arg.env_desc_fmt(&env_prefix);
+            let _ = writeln!(tw, "\t{desc}");
         }
 
         if !arguments.is_empty() || multi_argument.is_some() || sub_command.is_some() {
@@ -578,17 +697,20 @@ USAGE:", about_prog);
         }
 
         for argument in arguments.iter() {
+            let arg_desc = argument.env_desc_fmt(&env_prefix);
             let _ = if argument.required {
-                writeln!(tw, "\t<{}>\t{}", argument.name, argument.desc)
+                writeln!(tw, "\t<{}>\t{arg_desc}", argument.name)
             } else {
-                writeln!(tw, "\t[{}]\t{}", argument.name, argument.desc)
+                writeln!(tw, "\t[{}]\t{arg_desc}", argument.name)
             };
         }
 
         if let Some(argument) = multi_argument.as_ref() {
-            let _ = writeln!(tw, "\t<{}>...\t{}", argument.name, argument.desc);
+            let arg_desc = argument.desc.trim();
+            let _ = writeln!(tw, "\t<{}>...\t{arg_desc}", argument.name);
         } else if let Some(command) = sub_command.as_ref() {
-            let _ = writeln!(tw, "\t<{}>\t{}", command.name, command.desc);
+            let arg_desc = command.desc.trim();
+            let _ = writeln!(tw, "\t<{}>\t{arg_desc}", command.name);
         }
 
         let _ = tw.flush();
@@ -613,7 +735,19 @@ USAGE:", about_prog);
 
         let _ = match option.typ {
             OptValueType::MultiValue => writeln!(result, "{0}{0}let mut {1} = Vec::new();", TAB, option.arg.field_name),
-            OptValueType::Bool => writeln!(result, "{0}{0}let mut {1} = false;", TAB, option.arg.field_name),
+            OptValueType::Bool => match &option.arg.env_key {
+                Some(env_key) => {
+                    let _ = writeln!(result, "{0}{0}let mut {1} = if let Ok(_env_val_) = ::std::env::var(\"{env_prefix}{env_key}\") {{", TAB, option.arg.field_name);
+                    let _ = writeln!(result, "{0}{0}{0}match _env_val_.trim().parse() {{", TAB);
+                    let _ = writeln!(result, "{0}{0}{0}{0}Ok(_env_val_) => _env_val_,", TAB);
+                    let _ = writeln!(result, "{0}{0}{0}{0}Err(_) => return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{1}\", \"${env_prefix}{env_key}\"))),", TAB, option.arg.field_name);
+                    let _ = writeln!(result, "{0}{0}{0}}}", TAB);
+                    let _ = writeln!(result, "{0}{0}}} else {{", TAB);
+                    let _ = writeln!(result, "{0}{0}{0}false", TAB);
+                    writeln!(result, "{0}{0}}};", TAB)
+                },
+                None => writeln!(result, "{0}{0}let mut {1} = false;", TAB, option.arg.field_name),
+            },
             _ => writeln!(result, "{0}{0}let mut {1} = None;", TAB, option.arg.field_name),
         };
     }
@@ -720,25 +854,36 @@ USAGE:", about_prog);
             continue;
         }
 
+        let env_init = option.arg.env_init_fmt(&env_prefix, &option.arg.field_name);
         let _ = match option.typ {
-            OptValueType::MultiValue => Ok(()),
+            OptValueType::MultiValue => {
+                if let Some(env_key) = option.arg.env_key.as_ref() {
+                    let _ = writeln!(result, "\n{0}{0}if let Ok(_env_val_) = ::std::env::var(\"{env_prefix}{env_key}\") {{", TAB);
+                    let _ = writeln!(result, "{0}{0}{0}for _env_val_ in _env_val_.split(',') {{", TAB);
+                    let _ = writeln!(result, "{0}{0}{0}{0}{1}.push(match _env_val_.trim().parse() {{ Ok(_env_val_) => {{ _env_val_ }}, Err(_) => {{ return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{1}\", \"${env_prefix}{env_key}\"))); }} }})", TAB, option.arg.field_name);
+                    let _ = writeln!(result, "{0}{0}{0}}}", TAB);
+                    let _ = writeln!(result, "{0}{0}}}\n", TAB);
+                }
+                Ok(())
+            },
             OptValueType::Bool => Ok(()),
             _ => match option.arg.default {
-                Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ {2} }};", TAB, option.arg.field_name, default),
+                Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} {env_init} else {{ {2} }};", TAB, option.arg.field_name, default),
                 None => match option.arg.is_optional {
                     true => Ok(()),
-                    false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{2}\"))) }};", TAB, option.arg.field_name, option.arg.name),
+                    false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} {env_init} else {{ return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{2}\"))) }};", TAB, option.arg.field_name, option.arg.name),
                 },
             },
         };
     }
 
     for arg in arguments.iter() {
+        let env_init = arg.env_init_fmt(&env_prefix, &arg.field_name);
         let _ = match arg.default {
-            Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ {2} }};", TAB, arg.field_name, default),
+            Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} {env_init} else {{ {2} }};", TAB, arg.field_name, default),
             None => match arg.is_optional {
                 true => Ok(()),
-                false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} else {{ return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{2}\"))) }};", TAB, arg.field_name, arg.name),
+                false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} {env_init} else {{ return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{2}\"))) }};", TAB, arg.field_name, arg.name),
             }
         };
     }

@@ -28,7 +28,7 @@ struct BoolOptionArgs {
 }
 
 #[derive(Debug, Args)]
-#[arg(infer_name)]
+#[arg(infer_name, env_prefix = "TEST")]
 ///About my program
 ///
 ///About my program
@@ -41,7 +41,7 @@ struct MyArgs {
     ///Optional argument
     optional: Option<u32>,
 
-    #[arg(short, long)]
+    #[arg(short, long, env_value)]
     ///About this flag
     flag: bool,
 
@@ -49,11 +49,11 @@ struct MyArgs {
     ///Verbose mode
     verbose: bool,
 
-    #[arg(short = "v", long = "velocity", default_value = "42")]
+    #[arg(short = "v", long = "velocity", default_value = "42", env_value = "VELOCITY")]
     ///This is felocity. Default value is 42.
     speed: u32,
 
-    #[arg(short = "g", long = "gps")]
+    #[arg(short = "g", long = "gps", env_value)]
     ///GPS coordinates.
     gps: Vec<u32>,
 
@@ -61,7 +61,7 @@ struct MyArgs {
     ///To store path
     path: String,
 
-    #[arg(required)]
+    #[arg(required, env_value)]
     ///To store path 2
     path2: String,
 
@@ -89,7 +89,7 @@ struct BigArgs {
 
 #[test]
 fn should_assert_help() {
-    const EXPECTED: &str = r#"arg 0.4.3
+    const EXPECTED: &str = r#"arg 0.4.4
 About my program
 
 About my program
@@ -100,14 +100,14 @@ OPTIONS:
     -h,  --help                 Prints this help information
     -r,  --required <required>  Required argument
     -o,  --optional <optional>  Optional argument
-    -f,  --flag                 About this flag
+    -f,  --flag                 About this flag. Can be set via env TEST_FLAG
          --verbose              Verbose mode
-    -v,  --velocity <speed>     This is felocity. Default value is 42.
-    -g,  --gps <gps>...         GPS coordinates.
+    -v,  --velocity <speed>     This is felocity. Default value is 42. Can be set via env TEST_VELOCITY
+    -g,  --gps <gps>...         GPS coordinates. Can be set via env TEST_GPS
 
 ARGS:
     <path>             To store path
-    <path2>            To store path 2
+    <path2>            To store path 2. Can be set via env TEST_PATH2
     <remain_paths>...  To store rest of paths
 "#;
     assert_eq!(MyArgs::HELP, EXPECTED);
@@ -162,7 +162,6 @@ fn should_handle_all_flags() {
     assert_eq!(result.optional, Some(13));
     assert_eq!(result.required, 5);
     assert_eq!(result.speed, 32);
-    assert_eq!(result.gps, &[1, 55]);
     assert_eq!(result.path, "path1");
     assert_eq!(result.path2, "path2");
     assert_eq!(result.remain_paths, &["rest1", "rest2"]);
@@ -200,7 +199,6 @@ fn should_handle_all_flags_as_sub_command() {
     assert_eq!(result.optional, None);
     assert_eq!(result.required, 5);
     assert_eq!(result.speed, 32);
-    assert_eq!(result.gps, &[1, 55]);
     assert_eq!(result.path, "path1");
     assert_eq!(result.path2, "path2");
     assert_eq!(result.remain_paths, &["rest1", "rest2"]);
@@ -217,8 +215,16 @@ fn should_handle_all_flags_as_sub_command() {
 
 #[test]
 fn should_supply_default_value() {
-    let result = MyArgs::from_text("-f -r 5 --verbose -g 1 --gps 55 path1 path2 rest1 rest2").unwrap();
+    unsafe {
+        std::env::set_var("TEST_PATH2", "PATh2");
+        std::env::set_var("TEST_FLAG", "true");
+        std::env::set_var("TEST_GPS", "12, 13");
+    }
+    let result = MyArgs::from_text("-r 5 --verbose -g 1 --gps 55 path1").unwrap();
     assert_eq!(result.speed, 42);
+    assert_eq!(result.flag, true);
+    assert_eq!(result.gps, [1, 55, 12, 13]);
+    assert_eq!(result.path2, "PATh2");
 }
 
 #[test]

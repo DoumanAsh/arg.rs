@@ -10,6 +10,7 @@
 //!
 //! ### Arg
 //!
+//! - `env_prefix` - Specifies prefix to be used for environment based initialization. Defaults to `ARG`
 //! - `infer_name` - Specifies to insert binary name/version as combination of `env!("CARGO_PKG_NAME")` and  `env!("CARGO_PKG_VERSION")`. Applicable only to `struct`
 //!
 //! ## Fields
@@ -21,6 +22,7 @@
 //! - `default_value` - Specifies default value to use. Can be supplied with initialization expression as string. Otherwise uses Default trait.
 //! - `required` - Specifies whether argument is required. By default all arguments are optional. But booleans cannot be marked as `required`
 //! - `sub` - Specifies field to be sub-command. There can be only one sub-command and it is mutually exclusive with `Vec<_>` argument to collect rest of arguments. All other options are not applied to `sub` type of field.
+//! - `env_value` - Specifies to fallback to environment variable if argument is not provided. Takes precedence over default value. Can be supplied with different name, otherwise defaults to the field name in upper case
 //!
 //! ### Types
 //!
@@ -50,13 +52,29 @@
 //!
 //! Sub-command consumes all remaining arguments, so top command flags/options must be passed prior sub-command invocation.
 //!
+//! ### Environment variable initialization
+//!
+//! Option `env_value` can specified on argument to enable initialization from environment variable in case command line argument is not specified.
+//!
+//! When specified without value, `env_value` enables initialization using uppercase name of the field.
+//!
+//! If needed, override of the name is possible by declaring name `env_value = <YOUR NAME>`
+//!
+//! #### Notes on initialization
+//!
+//! Environment variable initialziation is not possible on subcommands or last argument collector (by specifying `Vec<T>` as last argument)
+//!
+//! When `env_value` specified on required argument, it will be used as fallback instead of failing parsing.
+//!
+//! In case of boolean, it always acts as initial value of the switch instead of the default `false`
+//!
 //! ```rust
 //! use arg::Args;
 //!
 //! #[derive(Args, Debug)]
 //! ///First
 //! struct First {
-//!     #[arg(short, long)]
+//!     #[arg(short, long, env_value)]
 //!     ///About this flag
 //!     flag: bool,
 //!
@@ -112,25 +130,27 @@
 //!     ///About this flag
 //!     flag: bool,
 //!
-//!     #[arg(long = "verbose")]
+//!     #[arg(long = "verbose", env_value)]
 //!     ///Verbose mode
 //!     verbose: Option<bool>,
 //!
-//!     #[arg(short = "v", long = "velocity", default_value = "42")]
+//!     #[arg(short = "v", long = "velocity", default_value = "42", env_value)]
 //!     ///This is velocity. Default value is 42.
 //!     speed: u32,
 //!
-//!     #[arg(short = "g", long = "gps")]
+//!     #[arg(short = "g", long = "gps", env_value)]
 //!     ///GPS coordinates.
 //!     gps: Vec<u32>,
 //!
-//!     #[arg(short, long, default_value = "\"./address.txt\".to_owned()")]
+//!     #[arg(short, long, default_value = "\"./address.txt\".to_owned()", env_value)]
 //!     ///Extra to show how to set default string value
 //!     extra: String,
 //!
+//!     #[arg(required, env_value)]
 //!     ///To store path
 //!     path: String,
 //!
+//!     #[arg(env_value)]
 //!     ///To store path 2
 //!     path2: String,
 //!
@@ -213,7 +233,7 @@ pub enum ParseError<'a> {
     ///
     ///Contains full flag name and provided value.
     InvalidFlagValue(&'a str, &'a str),
-    ///Argument is supplied with invalid vlaue
+    ///Argument is supplied with invalid value
     ///
     ///Contains argument name and provided value.
     InvalidArgValue(&'a str, &'a str),

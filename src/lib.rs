@@ -1,4 +1,4 @@
-//! Arg is simple command line argument parser, without any dependencies
+//! Arg is simple command line argument parser, with dependency on code generation only
 //!
 //!# Features
 //!
@@ -31,7 +31,7 @@
 //! - Multi Option - switch with `Vec<T>` type, which allows to accumulate multiple values of switch.
 //! - Argument - Plain argument that takes value.
 //! - Multi argument - Collection of arguments that accumulates into `Vec<T>`, there can be only one.
-//! - Sub-command - Propagates rest of arguments to another parser, there ca be only one.
+//! - Sub-command - Propagates rest of arguments to another parser, there can be only one.
 //!
 //! ### Conversion
 //!
@@ -62,59 +62,15 @@
 //!
 //! #### Notes on initialization
 //!
-//! Environment variable initialziation is not possible on subcommands or last argument collector (by specifying `Vec<T>` as last argument)
+//! Environment variable initialization is not possible on subcommands or multi argument collector (by specifying `Vec<T>` as last argument)
 //!
 //! When `env_value` specified on required argument, it will be used as fallback instead of failing parsing.
 //!
 //! In case of boolean, it always acts as initial value of the switch instead of the default `false`
 //!
-//! ```rust
-//! use arg::Args;
-//!
-//! #[derive(Args, Debug)]
-//! ///First
-//! struct First {
-//!     #[arg(short, long, env_value)]
-//!     ///About this flag
-//!     flag: bool,
-//!
-//!     #[arg(short = "v", long = "velocity", default_value = "42")]
-//!     ///This is felocity. Default value is 42.
-//!     speed: u32,
-//! }
-//!
-//! #[derive(Args, Debug)]
-//! ///Second
-//! struct Second {
-//!     #[arg(short = "v", long = "velocity", default_value = "42")]
-//!     ///This is velocity. Default value is 42.
-//!     speed: u32,
-//!     ///To store rest of paths
-//!     paths: Vec<String>,
-//! }
-//!
-//! #[derive(Args, Debug)]
-//! ///My subcommand with implicit command 'help` to list commands
-//! enum MySubCommand {
-//!     ///my first command
-//!     First(First),
-//!     ///my second command
-//!     Second(Second),
-//! }
-//!
-//! #[derive(Args, Debug)]
-//! struct MyArgs {
-//!     #[arg(short, long)]
-//!     ///About this flag
-//!     verbose: bool,
-//!     #[arg(sub)]
-//!     ///My sub command. Use `help` to show list of commands.
-//!     cmd: MySubCommand
-//! }
-//! ```
-//!
 //! # Usage
 //!
+//! ## Simple
 //! Here is comprehensive example to illustrate all ways to handle flags and options
 //!
 //! ```rust
@@ -163,6 +119,54 @@
 //!         Ok(args) => println!("args={:?}", args),
 //!         Err(err) => println!("err={:?}", err),
 //!     }
+//! }
+//! ```
+//!
+//! ## Sub-command
+//!
+//! Illustration of sub-command introduction via enum
+//!```rust
+//! use arg::Args;
+//!
+//! #[derive(Args, Debug)]
+//! ///First
+//! struct First {
+//!     #[arg(short, long, env_value)]
+//!     ///About this flag
+//!     flag: bool,
+//!
+//!     #[arg(short = "v", long = "velocity", default_value = "42")]
+//!     ///This is felocity. Default value is 42.
+//!     speed: u32,
+//! }
+//!
+//! #[derive(Args, Debug)]
+//! ///Second
+//! struct Second {
+//!     #[arg(short = "v", long = "velocity", default_value = "42")]
+//!     ///This is velocity. Default value is 42.
+//!     speed: u32,
+//!     ///To store rest of paths
+//!     paths: Vec<String>,
+//! }
+//!
+//! #[derive(Args, Debug)]
+//! ///My subcommand with implicit command 'help` to list commands
+//! enum MySubCommand {
+//!     ///my first command
+//!     First(First),
+//!     ///my second command
+//!     Second(Second),
+//! }
+//!
+//! #[derive(Args, Debug)]
+//! struct MyArgs {
+//!     #[arg(short, long)]
+//!     ///About this flag
+//!     verbose: bool,
+//!     #[arg(sub)]
+//!     ///My sub command. Use `help` to show list of commands.
+//!     cmd: MySubCommand
 //! }
 //! ```
 //!

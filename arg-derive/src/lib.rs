@@ -109,7 +109,7 @@ struct Command {
 }
 
 const CONCAT_DEFAULT_PROG_NAME_ARGS: &str = "env!(\"CARGO_PKG_NAME\"), \" \", env!(\"CARGO_PKG_VERSION\")";
-const FROM_FN: &str = "core::str::FromStr::from_str";
+const FROM_FN: &str = "::core::str::FromStr::from_str";
 const TAB: &str = "    ";
 const PARSER_TRAIT: &str = "arg::Args";
 const DEFAULT_INIT: &str = "Default::default()";
@@ -738,7 +738,7 @@ USAGE:", about_prog);
             OptValueType::Bool => match &option.arg.env_key {
                 Some(env_key) => {
                     let _ = writeln!(result, "{0}{0}let mut {1} = if let Ok(_env_val_) = ::std::env::var(\"{env_prefix}{env_key}\") {{", TAB, option.arg.field_name);
-                    let _ = writeln!(result, "{0}{0}{0}match _env_val_.trim().parse() {{", TAB);
+                    let _ = writeln!(result, "{0}{0}{0}match {FROM_FN}(_env_val_.trim()) {{", TAB);
                     let _ = writeln!(result, "{0}{0}{0}{0}Ok(_env_val_) => _env_val_,", TAB);
                     let _ = writeln!(result, "{0}{0}{0}{0}Err(_) => return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{1}\", \"${env_prefix}{env_key}\"))),", TAB, option.arg.field_name);
                     let _ = writeln!(result, "{0}{0}{0}}}", TAB);
@@ -860,7 +860,7 @@ USAGE:", about_prog);
                 if let Some(env_key) = option.arg.env_key.as_ref() {
                     let _ = writeln!(result, "\n{0}{0}if let Ok(_env_val_) = ::std::env::var(\"{env_prefix}{env_key}\") {{", TAB);
                     let _ = writeln!(result, "{0}{0}{0}for _env_val_ in _env_val_.split(',') {{", TAB);
-                    let _ = writeln!(result, "{0}{0}{0}{0}{1}.push(match _env_val_.trim().parse() {{ Ok(_env_val_) => {{ _env_val_ }}, Err(_) => {{ return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{1}\", \"${env_prefix}{env_key}\"))); }} }})", TAB, option.arg.field_name);
+                    let _ = writeln!(result, "{0}{0}{0}{0}{1}.push(match {FROM_FN}(_env_val_.trim()) {{ Ok(_env_val_) => {{ _env_val_ }}, Err(_) => {{ return Err(arg::ParseKind::Top(arg::ParseError::InvalidArgValue(\"{1}\", \"${env_prefix}{env_key}\"))); }} }})", TAB, option.arg.field_name);
                     let _ = writeln!(result, "{0}{0}{0}}}", TAB);
                     let _ = writeln!(result, "{0}{0}}}\n", TAB);
                 }

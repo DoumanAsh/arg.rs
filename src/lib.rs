@@ -90,6 +90,10 @@
 //!     ///Verbose mode
 //!     verbose: Option<bool>,
 //!
+//!     #[arg(long, env_value)]
+//!     ///Log level mode
+//!     log_legel: Option<u64>,
+//!
 //!     #[arg(short = "v", long = "velocity", default_value = "42", env_value)]
 //!     ///This is velocity. Default value is 42.
 //!     speed: u32,

@@ -870,7 +870,11 @@ USAGE:", about_prog);
             _ => match option.arg.default {
                 Some(ref default) => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} {env_init} else {{ {2} }};", TAB, option.arg.field_name, default),
                 None => match option.arg.is_optional {
-                    true => Ok(()),
+                    true => if let Some(env_key) = option.arg.env_key.as_ref() {
+                        writeln!(result, "{0}{0}if {1}.is_none() {{ {1} = ::std::env::var(\"{env_prefix}{env_key}\").ok().and_then(|value| {FROM_FN}(value.trim()).ok()); }}", TAB, option.arg.field_name)
+                    } else {
+                        Ok(())
+                    },
                     false => writeln!(result, "{0}{0}let {1} = if let Some(value) = {1} {{ value }} {env_init} else {{ return Err(arg::ParseKind::Top(arg::ParseError::RequiredArgMissing(\"{2}\"))) }};", TAB, option.arg.field_name, option.arg.name),
                 },
             },

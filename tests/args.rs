@@ -13,15 +13,20 @@ struct Test3 {
 
 #[allow(unused)]
 #[derive(Args, Debug)]
+///About test2
 struct Test2 {
   #[arg(short = "u")]
+  ///dummy
   u: bool,
 
+  ///paths
   paths: Vec<String>,
 }
 
 #[allow(unused)]
 #[derive(Args, Debug)]
+#[arg(env_prefix = "BOOL_TEST", env_value_all)]
+///About bool options
 struct BoolOptionArgs {
     #[arg(required)]
     option: bool,
@@ -89,7 +94,7 @@ struct BigArgs {
 
 #[test]
 fn should_assert_help() {
-    const EXPECTED: &str = r#"arg 0.4.5
+    const EXPECTED: &str = r#"arg 0.4.6
 About my program
 
 About my program
@@ -111,6 +116,32 @@ ARGS:
     <remain_paths>...  To store rest of paths
 "#;
     assert_eq!(MyArgs::HELP, EXPECTED);
+
+    let expected = r#"About bool options
+
+USAGE: [OPTIONS] <option>
+
+OPTIONS:
+    -h,  --help  Prints this help information
+
+ARGS:
+    <option>  Can be set via env BOOL_TEST_OPTION
+"#;
+    assert_eq!(BoolOptionArgs::HELP, expected);
+
+    let expected = r#"About test2
+
+USAGE: [OPTIONS] [paths]...
+
+OPTIONS:
+    -h,  --help  Prints this help information
+    -u,  --u     dummy
+
+ARGS:
+    <paths>...  paths
+"#;
+
+    assert_eq!(Test2::HELP, expected);
 }
 
 #[test]

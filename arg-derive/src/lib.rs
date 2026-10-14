@@ -49,7 +49,11 @@ impl fmt::Display for ArgumentEnvDesc<'_> {
 
         if let Some(env_key) = &env_key {
             let desc = desc.trim().trim_end_matches('.');
-            fmt.write_fmt(format_args!("{desc}. Can be set via env {prefix}{env_key}"))
+            if !desc.is_empty() {
+                fmt.write_str(desc)?;
+                fmt.write_str(". ")?;
+            }
+            fmt.write_fmt(format_args!("Can be set via env {prefix}{env_key}"))
         } else {
             fmt.write_str(desc)
         }
@@ -304,6 +308,7 @@ fn from_enum(ast: &syn::DeriveInput, payload: &syn::DataEnum) -> TokenStream {
 
 fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream {
     let mut env_prefix = None;
+    let mut env_value_default = false;
     let mut infer_prog_name = false;
     let mut about_prog = String::new();
     for attr in ast.attrs.iter() {
@@ -330,6 +335,8 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                     match value_attr {
                         syn::Meta::Path(value_attr) => if value_attr.is_ident("infer_name") {
                             infer_prog_name = true;
+                        } else if value_attr.is_ident("env_value_all") {
+                            env_value_default = true;
                         } else {
                             let ident = utils::FormatOptionalIdent(value_attr.get_ident());
                             return syn::Error::new_spanned(&value_attr, format!("Unknown attribute: '{ident}'. Expected: infer_name")).to_compile_error().into();
@@ -430,7 +437,11 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
         }
 
         let mut default = None;
-        let mut env_key = None;
+        let mut env_key = if env_value_default {
+            Some(name.to_uppercase())
+        } else {
+            None
+        };
 
         for attr in field.attrs.iter() {
             match &attr.meta {
@@ -462,7 +473,9 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                             } else if value_attr.is_ident("default_value") {
                                 default = Some(DEFAULT_INIT.to_owned());
                             } else if value_attr.is_ident("env_value") {
-                                env_key = Some(name.to_uppercase());
+                                if env_key.is_none() {
+                                    env_key = Some(name.to_uppercase());
+                                }
                             } else if value_attr.is_ident("required") {
                                 required = true;
                             } else if value_attr.is_ident("sub") {

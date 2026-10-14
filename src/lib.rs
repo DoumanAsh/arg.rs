@@ -11,6 +11,7 @@
 //! ### Arg
 //!
 //! - `env_prefix` - Specifies prefix to be used for environment based initialization. Defaults to `ARG`
+//! - `env_value_all` - Specifies to assume `env_value` is specified on all fields within the struct with field name as key name. `env_value = <key name>` can be used to override default key name.
 //! - `infer_name` - Specifies to insert binary name/version as combination of `env!("CARGO_PKG_NAME")` and  `env!("CARGO_PKG_VERSION")`. Applicable only to `struct`
 //!
 //! ## Fields

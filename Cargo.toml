@@ -22,7 +22,7 @@ keywords = [
 categories = ["command-line-interface"]
 
 [dependencies.arg-derive]
-version = "0.4.6"
+version = "0.4.10"
 path = "arg-derive/"
 
 [features]

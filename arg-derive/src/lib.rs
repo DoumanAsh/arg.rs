@@ -99,6 +99,13 @@ enum OptValueType {
     MultiValue,
 }
 
+impl OptValueType {
+    #[inline(always)]
+    const fn is_multi_value(&self) -> bool {
+        matches!(self, Self::MultiValue)
+    }
+}
+
 struct Opt {
     arg: Argument,
     long: String,
@@ -437,11 +444,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
         }
 
         let mut default = None;
-        let mut env_key = if env_value_default {
-            Some(name.to_uppercase())
-        } else {
-            None
-        };
+        let mut env_key = None;
 
         for attr in field.attrs.iter() {
             match &attr.meta {
@@ -556,7 +559,6 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
         }
 
         desc.pop();
-
         if required && default.is_some() {
             return syn::Error::new_spanned(field.ident.clone(), "Marked as required, but default value is provided?").to_compile_error().into();
         } else if is_optional && default.is_some() {
@@ -569,8 +571,12 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             default = Some(DEFAULT_INIT.to_owned());
         }
 
+        if env_key.is_none() && env_value_default && !(typ.is_multi_value() || sub_command.is_some()) {
+            env_key = Some(name.to_uppercase());
+        }
+
         if short.is_none() && long.is_none() {
-            if typ == OptValueType::MultiValue {
+            if typ.is_multi_value() {
                 if multi_argument.is_some() {
                     return syn::Error::new_spanned(field.ident.clone(), "Second argument collection. There can be only one").to_compile_error().into();
                 } else if sub_command.is_some() {

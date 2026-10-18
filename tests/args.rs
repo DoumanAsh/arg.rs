@@ -84,6 +84,7 @@ enum BigSubArgs {
 }
 
 #[derive(Debug, Args)]
+#[arg(env_value_all)]
 struct BigArgs {
     #[arg(long = "verbose")]
     ///Verbose mode

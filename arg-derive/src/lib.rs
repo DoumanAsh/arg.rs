@@ -571,7 +571,7 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             default = Some(DEFAULT_INIT.to_owned());
         }
 
-        if env_key.is_none() && env_value_default && !(typ.is_multi_value() || sub_command.is_some()) {
+        if env_key.is_none() && env_value_default && !typ.is_multi_value() && !is_sub {
             env_key = Some(name.to_uppercase());
         }
 

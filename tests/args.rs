@@ -111,7 +111,7 @@ OPTIONS:
     -f,  --flag                 About this flag. Can be set via env TEST_FLAG
          --verbose              Verbose mode
     -v,  --velocity <speed>     This is felocity. Default value is 42. Can be set via env TEST_VELOCITY
-    -g,  --gps <gps>...         GPS coordinates. Can be set via env TEST_GPS
+    -g,  --gps <gps>...         GPS coordinates. Can be init via env TEST_GPS with comma separator
 
 ARGS:
     <path>             To store path
@@ -126,12 +126,11 @@ USAGE: [OPTIONS] <option>
 
 OPTIONS:
     -h,  --help              Prints this help information
-         --multi <multi>...  Can be set via env BOOL_TEST_MULTI
+         --multi <multi>...  Can be init via env BOOL_TEST_MULTI with comma separator
 
 ARGS:
     <option>  Can be set via env BOOL_TEST_OPTION
 "#;
-    println!("BoolOptionArgs::HELP:\n{}", BoolOptionArgs::HELP);
     assert_eq!(BoolOptionArgs::HELP, expected);
 
     let expected = r#"About test2

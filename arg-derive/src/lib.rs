@@ -37,6 +37,7 @@ struct ArgumentEnvDesc<'a> {
     env_key: &'a Option<String>,
     prefix: &'a str,
     desc: &'a str,
+    is_multi_value: bool,
 }
 
 impl fmt::Display for ArgumentEnvDesc<'_> {
@@ -45,6 +46,7 @@ impl fmt::Display for ArgumentEnvDesc<'_> {
             env_key,
             prefix,
             desc,
+            is_multi_value,
         } = self;
 
         if let Some(env_key) = &env_key {
@@ -53,7 +55,11 @@ impl fmt::Display for ArgumentEnvDesc<'_> {
                 fmt.write_str(desc)?;
                 fmt.write_str(". ")?;
             }
-            fmt.write_fmt(format_args!("Can be set via env {prefix}{env_key}"))
+            if *is_multi_value {
+                fmt.write_fmt(format_args!("Can be init via env {prefix}{env_key} with comma separator"))
+            } else {
+                fmt.write_fmt(format_args!("Can be set via env {prefix}{env_key}"))
+            }
         } else {
             fmt.write_str(desc)
         }
@@ -82,11 +88,12 @@ impl Argument {
     }
 
     #[inline]
-    fn env_desc_fmt<'a>(&'a self, prefix: &'a str) -> ArgumentEnvDesc<'a> {
+    fn env_desc_fmt<'a>(&'a self, prefix: &'a str, is_multi_value: bool) -> ArgumentEnvDesc<'a> {
         ArgumentEnvDesc {
             env_key: &self.env_key,
             prefix,
-            desc: &self.desc
+            desc: &self.desc,
+            is_multi_value
         }
     }
 }
@@ -712,7 +719,7 @@ USAGE:", about_prog);
             };
 
 
-            let desc = option.arg.env_desc_fmt(&env_prefix);
+            let desc = option.arg.env_desc_fmt(&env_prefix, option.typ.is_multi_value());
             let _ = writeln!(tw, "\t{desc}");
         }
 
@@ -721,7 +728,7 @@ USAGE:", about_prog);
         }
 
         for argument in arguments.iter() {
-            let arg_desc = argument.env_desc_fmt(&env_prefix);
+            let arg_desc = argument.env_desc_fmt(&env_prefix, false);
             let _ = if argument.required {
                 writeln!(tw, "\t<{}>\t{arg_desc}", argument.name)
             } else {

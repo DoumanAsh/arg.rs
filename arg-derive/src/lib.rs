@@ -571,11 +571,11 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
             default = Some(DEFAULT_INIT.to_owned());
         }
 
-        if env_key.is_none() && env_value_default && !typ.is_multi_value() && !is_sub {
-            env_key = Some(name.to_uppercase());
-        }
-
         if short.is_none() && long.is_none() {
+            if env_key.is_none() && env_value_default && !typ.is_multi_value() && !is_sub {
+                env_key = Some(name.to_uppercase());
+            }
+
             if typ.is_multi_value() {
                 if multi_argument.is_some() {
                     return syn::Error::new_spanned(field.ident.clone(), "Second argument collection. There can be only one").to_compile_error().into();
@@ -635,6 +635,11 @@ fn from_struct(ast: &syn::DeriveInput, payload: &syn::DataStruct) -> TokenStream
                 Some(long) => long,
                 None => name.clone()
             };
+
+
+            if env_key.is_none() && env_value_default {
+                env_key = Some(name.to_uppercase());
+            }
 
             options.push(Opt {
                 arg: Argument {

@@ -8,19 +8,19 @@ struct Test4 {
 #[allow(unused)]
 #[derive(Args, Debug)]
 struct Test3 {
-  paths: Vec<String>,
+    paths: Vec<String>,
 }
 
 #[allow(unused)]
 #[derive(Args, Debug)]
 ///About test2
 struct Test2 {
-  #[arg(short = "u")]
-  ///dummy
-  u: bool,
+    #[arg(short = "u")]
+    ///dummy
+    u: bool,
 
-  ///paths
-  paths: Vec<String>,
+    ///paths
+    paths: Vec<String>,
 }
 
 #[allow(unused)]
@@ -28,6 +28,8 @@ struct Test2 {
 #[arg(env_prefix = "BOOL_TEST", env_value_all)]
 ///About bool options
 struct BoolOptionArgs {
+    #[arg(long, required)]
+    multi: Vec<bool>,
     #[arg(required)]
     option: bool,
 }
@@ -123,11 +125,13 @@ ARGS:
 USAGE: [OPTIONS] <option>
 
 OPTIONS:
-    -h,  --help  Prints this help information
+    -h,  --help              Prints this help information
+         --multi <multi>...  Can be set via env BOOL_TEST_MULTI
 
 ARGS:
     <option>  Can be set via env BOOL_TEST_OPTION
 "#;
+    println!("BoolOptionArgs::HELP:\n{}", BoolOptionArgs::HELP);
     assert_eq!(BoolOptionArgs::HELP, expected);
 
     let expected = r#"About test2

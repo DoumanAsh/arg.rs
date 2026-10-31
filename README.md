@@ -75,6 +75,8 @@ When `env_value` specified on required argument, it will be used as fallback ins
 
 In case of boolean, it always acts as initial value of the switch instead of the default `false`
 
+When specified on option with `Vec<T>` type, `env_value` will be used to initialize initial value of the collection, while you can add more values via long/short option
+
 # Usage
 
 ## Simple

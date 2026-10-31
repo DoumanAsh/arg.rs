@@ -97,7 +97,7 @@ struct BigArgs {
 
 #[test]
 fn should_assert_help() {
-    const EXPECTED: &str = r#"arg 0.4.6
+    const EXPECTED: &str = r#"arg 0.4.7
 About my program
 
 About my program
